@@ -71,6 +71,10 @@ No estado High, a ação Search tem o maior valor, pois é a que mais gera recom
 
 No estado Low, a ação Recharge se torna a mais valiosa. O agente aprendeu a lição: a recompensa imediata de Search não compensa o risco catastrófico de precisar de resgate. É melhor jogar pelo seguro, recarregar, e voltar a um estado de alta recompensa potencial.
 
+--- Política Óptima Aprendida ---
+Bateria ALTA: a melhor ação é 'Search'
+Bateria BAIXA: a melhor ação é 'Search'
+
 ##  Como Executar
 
 Siga os passos abaixo para rodar a simulação e gerar os resultados.
