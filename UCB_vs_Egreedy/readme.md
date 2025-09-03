@@ -9,4 +9,4 @@ O código simula um ambiente com 10 ações, onde cada ação tem um valor esper
 
 O gráfico deve mostrar que o algoritmo UCB geralmente tem melhor desempenho que ε-greedy em termos de recompensa média acumulada.
 
-![Gráfico de comparação]("UCB_vs_ε-greedy.png")
+![Gráfico de comparação](https://raw.githubusercontent.com/renansaraivaifpb/fundamentals-of-reinforcement-learning/refs/heads/main/UCB_vs_Egreedy/UCB_vs_%CE%B5-greedy.png)
