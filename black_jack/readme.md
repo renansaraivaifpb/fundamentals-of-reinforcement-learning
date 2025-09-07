@@ -67,7 +67,7 @@ Para executar este projeto, você precisa ter o Python 3.9+ instalado.
 Para iniciar o treinamento do agente, execute o script principal:
 
 ```bash
-python monte_carlo_blackjack.py
+python main.py
 ```
 
 O script irá treinar o agente por 500.000 episódios, exibindo o progresso e a política aprendida para cenários específicos a cada 50.000 episódios. Ao final do treinamento, dois gráficos serão gerados e exibidos.
