@@ -5,8 +5,6 @@
 
 ## Amostragem de Importância (Importance Sampling)
 
--   **Arquivo:** `importance_sampling_demo.py`
-
 ### Conceito
 
 Em muitos cenários, se quer calcular uma característica (como a média) de uma **distribuição alvo (π)**, mas só pode coletar dados de uma **distribuição de comportamento (b)** diferente. 
