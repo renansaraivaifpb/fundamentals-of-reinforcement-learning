@@ -107,12 +107,10 @@ A política final revela decisões estratégicas complexas que não foram pré-p
 O gráfico de progresso de aprendizagem mostra a convergência da recompensa média ao longo do tempo.
 
 ![Progresso de Aprendizagem](assets/learning_progress.png)
-*(Recomenda-se salvar o gráfico gerado em uma pasta `assets` e usar este link).*
 
 A política final é visualizada abaixo. Cada mapa de calor mostra a ação ideal (Amarelo=Hit, Roxo=Stick) para cada cenário, distinguindo entre mãos com e sem um Ás utilizável.
 
 ![Política Ótima Aprendida](assets/final_policy.png)
-*(Recomenda-se salvar o gráfico gerado em uma pasta `assets` e usar este link).*
 
 Nota-se que o agente é muito mais agressivo quando possui um Ás utilizável, pois compreendeu que ele atua como uma "rede de segurança", eliminando o risco imediato de estourar e abrindo oportunidades para melhorar a mão.
 
