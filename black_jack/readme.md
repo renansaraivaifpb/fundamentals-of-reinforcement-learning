@@ -39,29 +39,6 @@ $$ Q(s, a) \leftarrow Q(s, a) + \alpha [G_t - Q(s, a)] $$
 -   **Visualização de Dados:** `matplotlib`
 -   **Barra de Progresso:** `tqdm`
 
-## ⚙️ Instalação
-
-Para executar este projeto, você precisa ter o Python 3.9+ instalado.
-
-1.  **Clone o repositório:**
-    ```bash
-    git clone [URL_DO_SEU_REPOSITORIO_GITLAB]
-    cd [NOME_DO_PROJETO]
-    ```
-
-2.  **Crie e ative um ambiente virtual:**
-    ```bash
-    python -m venv venv
-    source venv/bin/activate
-    # No Windows, use: venv\Scripts\activate
-    ```
-
-3.  **Instale as dependências a partir do `requirements.txt`:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-    *(Nota: Certifique-se de criar um arquivo `requirements.txt` com as bibliotecas listadas na Pilha Tecnológica).*
-
 ## ▶️ Uso
 
 Para iniciar o treinamento do agente, execute o script principal:
@@ -117,7 +94,3 @@ Nota-se que o agente é muito mais agressivo quando possui um Ás utilizável, p
 ### Conexão com Engenharia de Controle e Automação
 
 Este projeto serve como uma prova de conceito para a aplicação de abordagens de RL em problemas de otimização. A mesma lógica usada para otimizar decisões em um jogo pode ser transposta para otimizar políticas de controle em sistemas do mundo real, como na gestão de energia de edifícios, no controle de processos industriais ou na calibração de sistemas autônomos, onde o objetivo é maximizar uma recompensa (eficiência, produção) ao longo do tempo.
-
-## 📄 Licença
-
-Este projeto está licenciado sob a Licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
