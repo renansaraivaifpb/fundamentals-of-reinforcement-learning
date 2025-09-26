@@ -5,7 +5,7 @@ Demonstração do Sistema de Controle de Ar-Condicionado com RL
 Este script demonstra o funcionamento básico do sistema de controle
 inteligente de ar-condicionado para salas de aula.
 
-Autor: Renan (com assistência de IA)
+Autor: Renan Saraiva dos Santos
 """
 
 import numpy as np
