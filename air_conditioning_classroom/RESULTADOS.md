@@ -180,6 +180,4 @@ O sistema serve como **exemplo didático** completo para:
 - Análise de políticas aprendidas
 
 ---
-
-**Desenvolvido por Renan com assistência de IA**  
 *Projeto de Aprendizagem por Reforço - Controle Inteligente de Ar-Condicionado*
