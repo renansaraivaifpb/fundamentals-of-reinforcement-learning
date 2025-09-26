@@ -6,7 +6,7 @@ Este módulo implementa um agente de aprendizagem por reforço usando Q-Learning
 para controlar o sistema de ar-condicionado de uma sala de aula, otimizando
 o balanceamento entre conforto térmico e eficiência energética.
 
-Autor: Renan (com assistência de IA)
+Autor: Renan Saraiva dos Santos
 """
 
 import numpy as np
