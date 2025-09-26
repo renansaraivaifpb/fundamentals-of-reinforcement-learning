@@ -5,7 +5,7 @@ Utilitários de Análise e Visualização para o Sistema de Controle de Ar-Condi
 Este módulo contém funções para análise detalhada do comportamento do agente,
 visualização de políticas aprendidas e métricas de performance.
 
-Autor: Renan (com assistência de IA)
+Autor: Renan Saraiva dos Santos
 """
 
 import numpy as np
