@@ -7,7 +7,7 @@ onde um agente de RL deve aprender a controlar a temperatura de forma a balancea
 - Conforto térmico dos usuários
 - Eficiência energética
 
-Autor: Renan (com assistência de IA)
+Autor: Renan Saraiva dos Santos
 """
 
 import numpy as np
