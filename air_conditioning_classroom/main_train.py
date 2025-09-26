@@ -9,7 +9,7 @@ o sistema de ar-condicionado de uma sala de aula, incluindo:
 - Análise de resultados
 - Visualizações
 
-Autor: Renan (com assistência de IA)
+Autor: Renan Saraiva dos Santos
 """
 
 import numpy as np
