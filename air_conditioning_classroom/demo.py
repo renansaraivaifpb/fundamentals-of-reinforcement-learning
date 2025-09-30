@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Demonstração do Sistema de Controle de Ar-Condicionado com RL
 
@@ -199,13 +198,7 @@ def main():
         demo_comparison()
         
         print("\n" + "="*60)
-        print("DEMONSTRAÇÃO CONCLUÍDA COM SUCESSO!")
         print("="*60)
-        print("\nO sistema demonstrou:")
-        print("✓ Treinamento de agente RL para controle de AC")
-        print("✓ Aprendizado de política balanceando conforto e eficiência")
-        print("✓ Análise de comportamento em diferentes cenários")
-        print("✓ Visualizações e métricas de performance")
         print("\nPara experimentos mais detalhados, execute:")
         print("  python main_train.py")
         print("\nPara análise avançada, execute:")
