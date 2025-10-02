@@ -32,6 +32,7 @@ A imagem abaixo compara o desempenho final de todos os agentes durante a fase de
 | use_optimistic_init |     1     |
 | optimistic_value    |     1     |
 
+
 #### Parâmetros do Ambiente
 | Parâmetro            |   Valor |
 |:---------------------|--------:|
