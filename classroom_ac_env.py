@@ -12,7 +12,7 @@ Autor: Renan Saraiva dos Santos
 
 import numpy as np
 from typing import Tuple, Dict, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 import matplotlib.pyplot as plt
 
@@ -38,30 +38,34 @@ class ClassroomConfig:
     initial_temp: float = 24.0
     ac_cooling_power: Dict[ACState, float] = None
     ac_energy_consumption: Dict[ACState, float] = None
+
+    # Usamos strings como chaves para facilitar a serialização para JSON.
+    reward_structure: Dict[str, float] = field(default_factory=dict)
     
     def __post_init__(self):
-        """
-        Inicializa ou corrige os dicionários, lidando com chaves de string
-        que podem ser tanto numéricas ("0", "1") quanto nomes ("ACState.OFF").
-        """
-        # Função auxiliar para reconstruir os dicionários
+        # (Lógica de autocorreção dos dicionários de AC, como na versão anterior)
         def rebuild_dict(d: dict) -> dict:
-            if not d or not isinstance(list(d.keys())[0], str):
-                return d # Retorna o dicionário se ele estiver vazio, correto, ou não for de strings
-
+            if not d or not isinstance(list(d.keys())[0], str): return d
             rebuilt = {}
             for k, v in d.items():
-                try:
-                    # Tenta converter a chave string para inteiro (ex: "2" -> 2)
-                    key_enum = ACState(int(k))
-                except ValueError:
-                    # Se falhar, assume que a chave é um nome (ex: "ACState.OFF")
-                    # Pega a parte depois do ponto final, se houver (OFF)
-                    key_name = k.split('.')[-1]
-                    # Recria o enum a partir do nome
-                    key_enum = ACState[key_name]
+                try: key_enum = ACState(int(k))
+                except ValueError: key_name = k.split('.')[-1]; key_enum = ACState[key_name]
                 rebuilt[key_enum] = v
             return rebuilt
+
+        if self.ac_cooling_power is None: self.ac_cooling_power = {ACState.OFF: 0.0, ACState.LOW: 2.0, ACState.MEDIUM: 4.0, ACState.HIGH: 6.0}
+        else: self.ac_cooling_power = rebuild_dict(self.ac_cooling_power)
+        
+        if self.ac_energy_consumption is None: self.ac_energy_consumption = {ACState.OFF: 0.0, ACState.LOW: 1.5, ACState.MEDIUM: 3.0, ACState.HIGH: 5.0}
+        else: self.ac_energy_consumption = rebuild_dict(self.ac_energy_consumption)
+
+        # Define os valores padrão para a estrutura de recompensa, se não for fornecida.
+        if not self.reward_structure:
+            self.reward_structure = {
+                'VERY_COLD': -15.0, 'COLD': -5.0,
+                'COMFORTABLE': 1.0,
+                'WARM': -5.0, 'VERY_HOT': -15.0
+            }
 
         # Bloco de inicialização
         if self.ac_cooling_power is None:
@@ -155,14 +159,15 @@ class ClassroomACEnvironment:
         return self.config.ac_energy_consumption[self.ac_state]
     
     def _calculate_reward(self, previous_ac_state: ACState) -> float:
-        comfort_rewards = {
-            ComfortLevel.VERY_COLD: -15.0, ComfortLevel.COLD: -5.0,
-            ComfortLevel.COMFORTABLE: 1.0, 
-            ComfortLevel.WARM: -5.0, ComfortLevel.VERY_HOT: -15.0
-        }
-        comfort_reward = comfort_rewards[self._get_comfort_level()]
-        energy_penalty = -self.config.ac_energy_consumption[self.ac_state] * 0.1
+        comfort_level = self._get_comfort_level()
+        energy_consumption = self._calculate_energy_consumption()
+        
+        # Lê a recompensa por conforto diretamente da configuração do ambiente, usando o nome do enum como chave.
+        comfort_reward = self.config.reward_structure[comfort_level.name]
+        
+        energy_penalty = -energy_consumption * 0.1
         action_change_penalty = -2.0 if self.ac_state != previous_ac_state else 0.0
+        
         return comfort_reward + energy_penalty + action_change_penalty
     
     def reset(self, start_temp: Optional[float] = None) -> int:

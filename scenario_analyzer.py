@@ -112,7 +112,6 @@ def generate_readme(analysis_results: list, results_dir: str):
     readme_content = f"# Relatório de Análise de Agentes - {os.path.basename(results_dir)}\n\n"
     readme_content += "Este relatório documenta o comportamento de cada agente treinado sob um conjunto de 10 cenários de teste.\n"
 
-    # Adiciona a seção de comparação geral no início
     readme_content += "\n---\n\n## 📊 Análise Comparativa Geral\n\n"
     comparison_img_path = os.path.join(results_dir, "experiment_comparison.png")
     if os.path.exists(comparison_img_path):
@@ -121,16 +120,17 @@ def generate_readme(analysis_results: list, results_dir: str):
     else:
         readme_content += "O arquivo 'experiment_comparison.png' não foi encontrado.\n"
 
-    # Adiciona a análise detalhada para cada agente
     for result in analysis_results:
         readme_content += f"\n---\n\n## 🔎 Análise Detalhada do Agente: `{result['name']}`\n\n"
         
-        # --- INÍCIO DA ALTERAÇÃO ---
         readme_content += "### 1. Parâmetros de Configuração\n\n"
-        readme_content += "#### Parâmetros do Agente\n"
-        readme_content += result['agent_params_md'] + "\n\n"
-        readme_content += "#### Parâmetros do Ambiente\n"
-        readme_content += result['env_params_md'] + "\n\n"
+        readme_content += "#### Parâmetros do Agente\n" + result['agent_params_md'] + "\n\n"
+        readme_content += "#### Parâmetros do Ambiente\n" + result['env_params_md'] + "\n\n"
+        
+        # --- INÍCIO DA ALTERAÇÃO ---
+        # Adiciona a nova tabela de estrutura de recompensa
+        readme_content += "#### Estrutura de Recompensa\n"
+        readme_content += result['reward_table_md'] + "\n\n"
         # --- FIM DA ALTERAÇÃO ---
 
         readme_content += "### 2. Resumo Quantitativo de Desempenho\n\n"
@@ -156,7 +156,7 @@ def analyze_single_agent(results_dir: str, model_name: str, interactive: bool = 
         print(f"Não foi possível carregar o agente {model_name}. Pulando.")
         return None
 
-    # --- INÍCIO DA ALTERAÇÃO ---
+    
     # Geração das tabelas de parâmetros em Markdown
     agent_params_dict = dataclasses.asdict(agent.config)
     df_agent_params = pd.DataFrame.from_dict(agent_params_dict, orient='index', columns=['Valor'])
@@ -167,8 +167,12 @@ def analyze_single_agent(results_dir: str, model_name: str, interactive: bool = 
     df_env_params = pd.DataFrame.from_dict(env_params_dict, orient='index', columns=['Valor'])
     df_env_params.index.name = 'Parâmetro'
     env_params_md = df_env_params.to_markdown()
-    # --- FIM DA ALTERAÇÃO ---
 
+    # Geração da tabela de estrutura de recompensa em Markdown
+    reward_dict = env_config.reward_structure
+    df_rewards = pd.DataFrame.from_dict(reward_dict, orient='index', columns=['Valor'])
+    df_rewards.index.name = 'Nível de Conforto'; reward_table_md = df_rewards.to_markdown()
+    
     env = ClassroomACEnvironment(env_config)
     scenarios = [
         {'name': '1: Manhã Fria, Sala Vazia', 'start_temp': 19.0, 'occupancy': 0, 'hour': 8},
@@ -209,6 +213,7 @@ def analyze_single_agent(results_dir: str, model_name: str, interactive: bool = 
         'name': model_name, 
         'agent_params_md': agent_params_md,
         'env_params_md': env_params_md,
+        'reward_table_md': reward_table_md, 
         'summary_table_md': summary_table_md, 
         'plot_paths': plot_paths
     }
