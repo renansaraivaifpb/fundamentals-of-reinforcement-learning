@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/engre/Documents/reinforcement/air_conditioning_classroom/mlruns/301836472915820922/bd66c631c7954c70a45294d981a7ebba/artifacts
+end_time: 1759439761617
+entry_point_name: ''
+experiment_id: '301836472915820922'
+lifecycle_stage: active
+run_id: bd66c631c7954c70a45294d981a7ebba
+run_name: Low Learning Rate
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1759439660021
+status: 3
+tags: []
+user_id: engre

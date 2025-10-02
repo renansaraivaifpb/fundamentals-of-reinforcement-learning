@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/engre/Documents/reinforcement/air_conditioning_classroom/mlruns/423211251174263306/ed05d9f54a6542bab7d5f751eb3db06e/artifacts
+end_time: 1759440217621
+entry_point_name: ''
+experiment_id: '423211251174263306'
+lifecycle_stage: active
+run_id: ed05d9f54a6542bab7d5f751eb3db06e
+run_name: Baseline
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1759440118279
+status: 3
+tags: []
+user_id: engre

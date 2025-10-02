@@ -1,0 +1,166 @@
+{
+  "name": "High Exploration",
+  "config": {
+    "env": {
+      "length": 8.0,
+      "width": 6.0,
+      "height": 3.0,
+      "max_occupancy": 30,
+      "thermal_mass": 1000.0,
+      "heat_transfer_coeff": 0.5,
+      "heat_gain_per_person": 0.1,
+      "temp_comfort_min": 22.0,
+      "temp_comfort_max": 26.0,
+      "temp_very_cold": 18.0,
+      "temp_very_hot": 30.0,
+      "initial_temp": 24.0,
+      "ac_cooling_power": {
+        "ACState.OFF": 0.0,
+        "ACState.LOW": 2.0,
+        "ACState.MEDIUM": 4.0,
+        "ACState.HIGH": 6.0
+      },
+      "ac_energy_consumption": {
+        "ACState.OFF": 0.0,
+        "ACState.LOW": 1.5,
+        "ACState.MEDIUM": 3.0,
+        "ACState.HIGH": 5.0
+      }
+    },
+    "agent": {
+      "alpha": 0.1,
+      "gamma": 0.95,
+      "epsilon": 0.5,
+      "epsilon_min": 0.01,
+      "epsilon_decay": 0.99,
+      "episodes": 10,
+      "temperature_penalty": 0.5,
+      "energy_penalty": 0.1,
+      "comfort_bonus": 2.0,
+      "use_epsilon_decay": true,
+      "use_optimistic_init": true,
+      "optimistic_value": 1.0
+    }
+  },
+  "training_time": "0:00:00.111180",
+  "training_history": {
+    "episode_rewards": [
+      -835.1999999999992,
+      -87.99999999999996,
+      -618.0999999999998,
+      -337.04999999999995,
+      -475.59999999999974,
+      -133.4000000000001,
+      -167.80000000000004,
+      -136.10000000000005,
+      -136.15000000000003,
+      -153.7000000000001
+    ],
+    "episode_lengths": [
+      240,
+      240,
+      240,
+      240,
+      240,
+      240,
+      240,
+      240,
+      240,
+      240
+    ],
+    "epsilon_history": [
+      0.495,
+      0.49005,
+      0.48514949999999996,
+      0.480298005,
+      0.47549502494999996,
+      0.47074007470049994,
+      0.46603267395349496,
+      0.46137234721396,
+      0.45675862374182036,
+      0.45219103750440215
+    ],
+    "q_table_changes": [
+      0.00790070095486111,
+      0.0020496867925347225,
+      0.0064065326171875,
+      0.004009307973090278,
+      0.004988347280116103,
+      0.002217434491422526,
+      0.002563416563455475,
+      0.002270355715015764,
+      0.00211011805132128,
+      0.002161346192707341
+    ],
+    "comfort_percentages": [
+      48.54771784232365,
+      100.0,
+      61.82572614107884,
+      84.64730290456431,
+      75.10373443983403,
+      100.0,
+      95.850622406639,
+      100.0,
+      100.0,
+      100.0
+    ],
+    "energy_consumptions": [
+      29.200000000000003,
+      28.0,
+      28.1,
+      33.050000000000004,
+      37.6,
+      41.400000000000006,
+      35.800000000000004,
+      40.1,
+      38.15,
+      45.7
+    ],
+    "epsilon_values": []
+  },
+  "evaluation_stats": {
+    "avg_reward": -171.64000000000004,
+    "std_reward": 119.12107454182913,
+    "avg_comfort": 94.06639004149378,
+    "std_comfort": 10.428154481088272,
+    "avg_energy": 32.239999999999995,
+    "std_energy": 6.13859918874005,
+    "avg_ac_usage": 46.39004149377594,
+    "avg_temperature": 23.528575298660755,
+    "temperature_std": 0.5691805992043432
+  },
+  "policy_analysis": {
+    "policy_summary": {},
+    "action_distribution": {
+      "0": {
+        "count": 2445,
+        "percentage": 84.89583333333334
+      },
+      "1": {
+        "count": 217,
+        "percentage": 7.534722222222221
+      },
+      "2": {
+        "count": 140,
+        "percentage": 4.861111111111112
+      },
+      "3": {
+        "count": 78,
+        "percentage": 2.7083333333333335
+      }
+    },
+    "state_value_stats": {
+      "mean": 1.006214104255408,
+      "std": 0.045879558266990014,
+      "min": 0.289025,
+      "max": 1.4726945137562502
+    },
+    "q_table_stats": {
+      "mean": 0.9726172254331412,
+      "std": 0.11982361699017771,
+      "min": -0.74855,
+      "max": 1.4726945137562502
+    }
+  },
+  "timestamp": "2025-10-02T18:21:32.157988"
+}

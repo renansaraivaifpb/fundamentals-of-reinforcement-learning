@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/engre/Documents/reinforcement/air_conditioning_classroom/mlruns/423211251174263306/77ba2db6a44742b8a8dbc583af46f143/artifacts
+end_time: 1759440519898
+entry_point_name: ''
+experiment_id: '423211251174263306'
+lifecycle_stage: active
+run_id: 77ba2db6a44742b8a8dbc583af46f143
+run_name: High Discount Factor
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1759440417682
+status: 3
+tags: []
+user_id: engre

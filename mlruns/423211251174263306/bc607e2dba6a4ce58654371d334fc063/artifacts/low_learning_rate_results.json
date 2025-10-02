@@ -1,0 +1,166 @@
+{
+  "name": "Low Learning Rate",
+  "config": {
+    "env": {
+      "length": 8.0,
+      "width": 6.0,
+      "height": 3.0,
+      "max_occupancy": 30,
+      "thermal_mass": 1000.0,
+      "heat_transfer_coeff": 0.5,
+      "heat_gain_per_person": 0.1,
+      "temp_comfort_min": 22.0,
+      "temp_comfort_max": 26.0,
+      "temp_very_cold": 18.0,
+      "temp_very_hot": 30.0,
+      "initial_temp": 24.0,
+      "ac_cooling_power": {
+        "ACState.OFF": 0.0,
+        "ACState.LOW": 2.0,
+        "ACState.MEDIUM": 4.0,
+        "ACState.HIGH": 6.0
+      },
+      "ac_energy_consumption": {
+        "ACState.OFF": 0.0,
+        "ACState.LOW": 1.5,
+        "ACState.MEDIUM": 3.0,
+        "ACState.HIGH": 5.0
+      }
+    },
+    "agent": {
+      "alpha": 0.05,
+      "gamma": 0.95,
+      "epsilon": 0.2,
+      "epsilon_min": 0.01,
+      "epsilon_decay": 0.995,
+      "episodes": 10,
+      "temperature_penalty": 0.5,
+      "energy_penalty": 0.1,
+      "comfort_bonus": 2.0,
+      "use_epsilon_decay": true,
+      "use_optimistic_init": true,
+      "optimistic_value": 1.0
+    }
+  },
+  "training_time": "0:00:00.104322",
+  "training_history": {
+    "episode_rewards": [
+      58.00000000000004,
+      -33.099999999999994,
+      12.74999999999999,
+      12.949999999999994,
+      -443.5999999999996,
+      -107.29999999999995,
+      -76.24999999999999,
+      -120.7,
+      -48.84999999999996,
+      -449.54999999999967
+    ],
+    "episode_lengths": [
+      240,
+      240,
+      240,
+      240,
+      240,
+      240,
+      240,
+      240,
+      240,
+      240
+    ],
+    "epsilon_history": [
+      0.199,
+      0.19800500000000001,
+      0.197014975,
+      0.19602990012500002,
+      0.19504975062437502,
+      0.19407450187125314,
+      0.19310412936189686,
+      0.19213860871508737,
+      0.19117791567151193,
+      0.19022202609315436
+    ],
+    "q_table_changes": [
+      0.000983450878838434,
+      0.0009925230908586799,
+      0.000981033227394901,
+      0.0009948927653555468,
+      0.0025804611070944904,
+      0.001052674920040428,
+      0.0010586325264771703,
+      0.0010758613271260706,
+      0.0009086992442442081,
+      0.002404946020547156
+    ],
+    "comfort_percentages": [
+      100.0,
+      100.0,
+      100.0,
+      100.0,
+      66.80497925311202,
+      100.0,
+      100.0,
+      100.0,
+      100.0,
+      75.93360995850622
+    ],
+    "energy_consumptions": [
+      16.0,
+      23.1,
+      19.25,
+      19.05,
+      15.600000000000001,
+      33.300000000000004,
+      26.25,
+      36.7,
+      28.85,
+      37.550000000000004
+    ],
+    "epsilon_values": []
+  },
+  "evaluation_stats": {
+    "avg_reward": -136.84499999999994,
+    "std_reward": 178.51094007090992,
+    "avg_comfort": 91.49377593360995,
+    "std_comfort": 13.473981694746092,
+    "avg_energy": 21.645,
+    "std_energy": 7.467511298953622,
+    "avg_ac_usage": 33.19502074688796,
+    "avg_temperature": 24.038107219265306,
+    "temperature_std": 0.5439691174220964
+  },
+  "policy_analysis": {
+    "policy_summary": {},
+    "action_distribution": {
+      "0": {
+        "count": 2607,
+        "percentage": 90.52083333333333
+      },
+      "1": {
+        "count": 135,
+        "percentage": 4.6875
+      },
+      "2": {
+        "count": 98,
+        "percentage": 3.4027777777777777
+      },
+      "3": {
+        "count": 40,
+        "percentage": 1.3888888888888888
+      }
+    },
+    "state_value_stats": {
+      "mean": 1.0078926290881631,
+      "std": 0.03567569573205842,
+      "min": 0.8673299999999999,
+      "max": 1.3631240862332534
+    },
+    "q_table_stats": {
+      "mean": 0.9943133927432716,
+      "std": 0.04141034386508397,
+      "min": 0.39299999999999996,
+      "max": 1.3631240862332534
+    }
+  },
+  "timestamp": "2025-10-02T18:21:32.489407"
+}
