@@ -118,17 +118,43 @@ def plot_scenario_results(all_results: dict, env_config: ClassroomConfig, save_d
     return saved_plot_paths
 
 def generate_readme(analysis_results: list, results_dir: str):
+    """Gera um arquivo README.md compilando todas as análises."""
     print("\n📝 Gerando arquivo README.md com o relatório completo...")
+    
     readme_content = f"# Relatório de Análise de Agentes - {os.path.basename(results_dir)}\n\n"
     readme_content += "Este relatório documenta o comportamento de cada agente treinado sob um conjunto de 10 cenários de teste.\n"
+
+    # --- INÍCIO DA ALTERAÇÃO ---
+    # Adiciona a seção de comparação geral no início do README
+    readme_content += "\n---\n\n## 📊 Análise Comparativa Geral\n\n"
+    comparison_img_path = os.path.join(results_dir, "experiment_comparison.png")
+    
+    if os.path.exists(comparison_img_path):
+        readme_content += "A imagem abaixo compara o desempenho final de todos os agentes durante a fase de avaliação, considerando Recompensa, Conforto e Consumo de Energia.\n\n"
+        # Usa o caminho relativo para a imagem funcionar corretamente
+        readme_content += f"![Análise Comparativa Geral](experiment_comparison.png)\n"
+    else:
+        readme_content += "O arquivo 'experiment_comparison.png' não foi encontrado nesta pasta de resultados.\n"
+    # --- FIM DA ALTERAÇÃO ---
+
     for result in analysis_results:
-        readme_content += f"\n---\n\n## 🔎 Análise do Agente: `{result['name']}`\n\n"
-        readme_content += "### Resumo Quantitativo\n\n" + result['summary_table_md'] + "\n\n"
-        readme_content += "### Gráficos de Comportamento\n\n"
-        for path in result['plot_paths']:
-            readme_content += f"![Gráfico de Análise para {result['name']}]({os.path.basename(path)})\n"
+        model_name = result['name']
+        summary_table = result['summary_table_md']
+        plot_paths = result['plot_paths']
+
+        readme_content += f"\n---\n\n## 🔎 Análise Detalhada do Agente: `{model_name}`\n\n"
+        readme_content += "### Resumo Quantitativo\n\n"
+        readme_content += summary_table + "\n\n"
+        readme_content += "### Gráficos de Comportamento em Cenários\n\n"
+
+        for path in plot_paths:
+            relative_path = os.path.basename(path)
+            readme_content += f"![Gráfico de Análise para {model_name}]({relative_path})\n"
+
     readme_path = os.path.join(results_dir, "README.md")
-    with open(readme_path, 'w', encoding='utf-8') as f: f.write(readme_content)
+    with open(readme_path, 'w', encoding='utf-8') as f:
+        f.write(readme_content)
+        
     print(f"✅ Relatório completo salvo em: {readme_path}")
 
 # ALTERAÇÃO: Esta função agora retorna os resultados e controla a interatividade
