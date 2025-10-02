@@ -1,26 +1,12 @@
 # analyzer.py
 # -*- coding: utf-8 -*-
 """
-Script Unificado para Análise de Agentes de RL e Geração de Relatórios
+Script Unificado para Análise de Agentes de RL e Geração de Relatórios (v3)
 
 Este script é a ferramenta central para analisar os resultados dos treinamentos.
-Ele pode operar em dois modos:
-
-1. MODO RELATÓRIO COMPLETO (Padrão):
-   - Analisa TODOS os agentes na pasta de resultados.
-   - Gera um arquivo README.md com gráficos e tabelas para cada um.
-   - Uso: python analyzer.py <caminho_para_a_pasta_de_resultados>
-
-2. MODO ANÁLISE DETALHADA (Interativo):
-   - Analisa um ÚNICO agente especificado.
-   - Exibe os gráficos de cenário interativamente na tela.
-   - Uso: python analyzer.py <caminho_para_a_pasta_de_resultados> --model <nome_do_modelo>
-
-Exemplo 1: Gerar relatório completo para a pasta 'results_20251002_174127'
-$ python analyzer.py results_20251002_174127
-
-Exemplo 2: Analisar interativamente apenas o agente 'baseline'
-$ python analyzer.py results_20251002_174127 --model baseline
+Agora inclui tabelas com os parâmetros de configuração do agente e do ambiente
+no relatório final para garantir a reprodutibilidade.
+... (docstring como antes) ...
 """
 
 import os
@@ -31,6 +17,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import dataclasses
 
 try:
     from classroom_ac_env import ClassroomACEnvironment, ClassroomConfig
@@ -40,6 +27,7 @@ except ImportError:
     exit()
 
 def load_agent_and_config(results_dir: str, model_name: str) -> tuple:
+    # (Esta função permanece a mesma)
     model_path = os.path.join(results_dir, f"{model_name}_model.pkl")
     config_path = os.path.join(results_dir, f"{model_name}_results.json")
     if not os.path.exists(model_path) or not os.path.exists(config_path):
@@ -53,6 +41,7 @@ def load_agent_and_config(results_dir: str, model_name: str) -> tuple:
     return agent, env_config
 
 def run_simulation_for_scenario(agent: ACQLearningAgent, env: ClassroomACEnvironment, scenario: dict) -> pd.DataFrame:
+    # (Esta função permanece a mesma)
     print(f"  -> Simulando cenário: '{scenario['name']}'...")
     state = env.reset(start_temp=scenario['start_temp'])
     env.occupancy, env.hour_of_day = scenario['occupancy'], scenario['hour']
@@ -70,8 +59,8 @@ def run_simulation_for_scenario(agent: ACQLearningAgent, env: ClassroomACEnviron
         if done: break
     return pd.DataFrame(history)
 
-# ALTERAÇÃO: Adicionado parâmetro 'interactive' para controlar a exibição dos plots
 def plot_scenario_results(all_results: dict, env_config: ClassroomConfig, save_dir: str, model_name: str, interactive: bool = False) -> list:
+    # (Esta função permanece a mesma)
     print(f"\n🎨 Gerando visualizações para o agente '{model_name.title()}'...")
     sns.set_style("darkgrid")
     
@@ -110,13 +99,12 @@ def plot_scenario_results(all_results: dict, env_config: ClassroomConfig, save_d
         saved_plot_paths.append(save_path)
         print(f"  -> Gráfico salvo em: {os.path.basename(save_path)}")
 
-        if interactive:
-            plt.show() # Mostra o gráfico na tela apenas no modo interativo
-        
+        if interactive: plt.show()
         plt.close(fig)
         
     return saved_plot_paths
 
+# ALTERAÇÃO: A função agora inclui as novas tabelas de parâmetros
 def generate_readme(analysis_results: list, results_dir: str):
     """Gera um arquivo README.md compilando todas as análises."""
     print("\n📝 Gerando arquivo README.md com o relatório completo...")
@@ -124,32 +112,33 @@ def generate_readme(analysis_results: list, results_dir: str):
     readme_content = f"# Relatório de Análise de Agentes - {os.path.basename(results_dir)}\n\n"
     readme_content += "Este relatório documenta o comportamento de cada agente treinado sob um conjunto de 10 cenários de teste.\n"
 
-    # --- INÍCIO DA ALTERAÇÃO ---
-    # Adiciona a seção de comparação geral no início do README
+    # Adiciona a seção de comparação geral no início
     readme_content += "\n---\n\n## 📊 Análise Comparativa Geral\n\n"
     comparison_img_path = os.path.join(results_dir, "experiment_comparison.png")
-    
     if os.path.exists(comparison_img_path):
-        readme_content += "A imagem abaixo compara o desempenho final de todos os agentes durante a fase de avaliação, considerando Recompensa, Conforto e Consumo de Energia.\n\n"
-        # Usa o caminho relativo para a imagem funcionar corretamente
+        readme_content += "A imagem abaixo compara o desempenho final de todos os agentes durante a fase de avaliação.\n\n"
         readme_content += f"![Análise Comparativa Geral](experiment_comparison.png)\n"
     else:
-        readme_content += "O arquivo 'experiment_comparison.png' não foi encontrado nesta pasta de resultados.\n"
-    # --- FIM DA ALTERAÇÃO ---
+        readme_content += "O arquivo 'experiment_comparison.png' não foi encontrado.\n"
 
+    # Adiciona a análise detalhada para cada agente
     for result in analysis_results:
-        model_name = result['name']
-        summary_table = result['summary_table_md']
-        plot_paths = result['plot_paths']
+        readme_content += f"\n---\n\n## 🔎 Análise Detalhada do Agente: `{result['name']}`\n\n"
+        
+        # --- INÍCIO DA ALTERAÇÃO ---
+        readme_content += "### 1. Parâmetros de Configuração\n\n"
+        readme_content += "#### Parâmetros do Agente\n"
+        readme_content += result['agent_params_md'] + "\n\n"
+        readme_content += "#### Parâmetros do Ambiente\n"
+        readme_content += result['env_params_md'] + "\n\n"
+        # --- FIM DA ALTERAÇÃO ---
 
-        readme_content += f"\n---\n\n## 🔎 Análise Detalhada do Agente: `{model_name}`\n\n"
-        readme_content += "### Resumo Quantitativo\n\n"
-        readme_content += summary_table + "\n\n"
-        readme_content += "### Gráficos de Comportamento em Cenários\n\n"
-
-        for path in plot_paths:
-            relative_path = os.path.basename(path)
-            readme_content += f"![Gráfico de Análise para {model_name}]({relative_path})\n"
+        readme_content += "### 2. Resumo Quantitativo de Desempenho\n\n"
+        readme_content += result['summary_table_md'] + "\n\n"
+        
+        readme_content += "### 3. Gráficos de Comportamento em Cenários\n\n"
+        for path in result['plot_paths']:
+            readme_content += f"![Gráfico de Análise para {result['name']}]({os.path.basename(path)})\n"
 
     readme_path = os.path.join(results_dir, "README.md")
     with open(readme_path, 'w', encoding='utf-8') as f:
@@ -157,18 +146,28 @@ def generate_readme(analysis_results: list, results_dir: str):
         
     print(f"✅ Relatório completo salvo em: {readme_path}")
 
-# ALTERAÇÃO: Esta função agora retorna os resultados e controla a interatividade
-def analyze_single_agent(results_dir: str, model_name: str, interactive: bool = False):
-    """Orquestra a análise de um único agente."""
-    
-    print("\n" + "="*80)
-    print(f"INICIANDO ANÁLISE DO AGENTE: {model_name.upper()}")
-    print("="*80)
 
+# ALTERAÇÃO: Esta função agora também gera as tabelas de parâmetros
+def analyze_single_agent(results_dir: str, model_name: str, interactive: bool = False):
+    """Orquestra a análise de um único agente, incluindo a geração de tabelas de parâmetros."""
+    print("\n" + "="*80 + f"\nINICIANDO ANÁLISE DO AGENTE: {model_name.upper()}\n" + "="*80)
     agent, env_config = load_agent_and_config(results_dir, model_name)
     if agent is None:
         print(f"Não foi possível carregar o agente {model_name}. Pulando.")
         return None
+
+    # --- INÍCIO DA ALTERAÇÃO ---
+    # Geração das tabelas de parâmetros em Markdown
+    agent_params_dict = dataclasses.asdict(agent.config)
+    df_agent_params = pd.DataFrame.from_dict(agent_params_dict, orient='index', columns=['Valor'])
+    df_agent_params.index.name = 'Hiperparâmetro'
+    agent_params_md = df_agent_params.to_markdown()
+
+    env_params_dict = {f.name: getattr(env_config, f.name) for f in dataclasses.fields(env_config) if not isinstance(getattr(env_config, f.name), (dict, list))}
+    df_env_params = pd.DataFrame.from_dict(env_params_dict, orient='index', columns=['Valor'])
+    df_env_params.index.name = 'Parâmetro'
+    env_params_md = df_env_params.to_markdown()
+    # --- FIM DA ALTERAÇÃO ---
 
     env = ClassroomACEnvironment(env_config)
     scenarios = [
@@ -199,30 +198,34 @@ def analyze_single_agent(results_dir: str, model_name: str, interactive: bool = 
     summary_table_md = df_summary.round(2).to_markdown()
 
     if interactive:
+        print("\n" + "="*80 + "\nParâmetros do Agente\n" + "="*80)
+        print(agent_params_md)
+        print("\n" + "="*80 + "\nParâmetros do Ambiente\n" + "="*80)
+        print(env_params_md)
         print("\n" + "="*80 + f"\n📊 RESUMO QUANTITATIVO DO AGENTE '{model_name.title()}'\n" + "="*80)
         print(summary_table_md)
         
-    return {'name': model_name, 'summary_table_md': summary_table_md, 'plot_paths': plot_paths}
+    return {
+        'name': model_name, 
+        'agent_params_md': agent_params_md,
+        'env_params_md': env_params_md,
+        'summary_table_md': summary_table_md, 
+        'plot_paths': plot_paths
+    }
 
-# ALTERAÇÃO: A função main agora decide o modo de operação (single vs all)
 def main(args):
-    """Decide se roda a análise para um agente ou para todos."""
-    
+    # (Esta função permanece a mesma)
     if args.model:
-        # --- MODO ANÁLISE DETALHADA ---
         analyze_single_agent(args.results_dir, args.model, interactive=True)
         print("\n🎉 Análise detalhada concluída!")
     else:
-        # --- MODO RELATÓRIO COMPLETO ---
         model_files = glob.glob(os.path.join(args.results_dir, '*_model.pkl'))
         if not model_files:
             print(f"Nenhum arquivo '*_model.pkl' encontrado no diretório '{args.results_dir}'.")
             return
         model_names = sorted([os.path.basename(f).replace('_model.pkl', '') for f in model_files])
         print(f"Encontrados {len(model_names)} modelos para gerar relatório: {', '.join(model_names)}")
-        
         all_analyses = [analyze_single_agent(args.results_dir, name) for name in model_names]
-        
         generate_readme([res for res in all_analyses if res is not None], args.results_dir)
         print("\n🎉 Processo de documentação automática concluído com sucesso!")
 
