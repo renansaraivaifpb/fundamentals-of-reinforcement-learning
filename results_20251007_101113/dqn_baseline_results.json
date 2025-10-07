@@ -1,0 +1,115 @@
+{
+    "name": "DQN Baseline",
+    "agent_type": "dqn",
+    "config": {
+        "env": {
+            "length": 8.0,
+            "width": 6.0,
+            "height": 3.0,
+            "max_occupancy": 30,
+            "thermal_mass": 1000.0,
+            "heat_transfer_coeff": 0.5,
+            "heat_gain_per_person": 0.1,
+            "temp_comfort_min": 22.0,
+            "temp_comfort_max": 26.0,
+            "temp_very_cold": 18.0,
+            "temp_very_hot": 30.0,
+            "initial_temp": 24.0,
+            "season": "summer",
+            "energy_cost_peak_hours": [
+                18,
+                21
+            ],
+            "energy_penalty_multiplier_peak": 1.5,
+            "ac_cooling_power": {
+                "ACState.OFF": 0.0,
+                "ACState.LOW": 2.0,
+                "ACState.MEDIUM": 4.0,
+                "ACState.HIGH": 6.0
+            },
+            "ac_energy_consumption": {
+                "ACState.OFF": 0.0,
+                "ACState.LOW": 1.5,
+                "ACState.MEDIUM": 3.0,
+                "ACState.HIGH": 5.0
+            },
+            "reward_structure": {
+                "VERY_COLD": -15.0,
+                "COLD": -5.0,
+                "COMFORTABLE": 1.0,
+                "WARM": -5.0,
+                "VERY_HOT": -15.0
+            }
+        },
+        "agent": {
+            "state_size": 4,
+            "action_size": 4,
+            "episodes": 10,
+            "buffer_size": 100000,
+            "batch_size": 64,
+            "gamma": 0.99,
+            "alpha": 0.001,
+            "tau": 0.001,
+            "update_every": 4,
+            "epsilon_start": 1.0,
+            "epsilon_decay": 0.995,
+            "epsilon_min": 0.01
+        }
+    },
+    "training_history": {
+        "episode_rewards": [
+            -416.02500000000003,
+            -189.25000000000023,
+            -307.05000000000024,
+            -189.92500000000024,
+            -202.3500000000004,
+            -191.40000000000018,
+            -253.65000000000026,
+            -638.3749999999997,
+            -287.7000000000003,
+            -310.62500000000006
+        ],
+        "comfort_percentages": [
+            83.81742738589212,
+            100.0,
+            90.87136929460581,
+            100.0,
+            100.0,
+            100.0,
+            95.850622406639,
+            67.63485477178423,
+            93.7759336099585,
+            89.21161825726142
+        ],
+        "energy_consumptions": [
+            54.800000000000004,
+            58.150000000000006,
+            52.550000000000004,
+            57.0,
+            53.050000000000004,
+            58.550000000000004,
+            56.45,
+            59.25,
+            57.300000000000004,
+            50.95
+        ],
+        "epsilon_values": [
+            0.995,
+            0.990025,
+            0.985074875,
+            0.9801495006250001,
+            0.9752487531218751,
+            0.9703725093562657,
+            0.9655206468094844,
+            0.960693043575437,
+            0.9558895783575597,
+            0.9511101304657719
+        ]
+    },
+    "evaluation_stats": {
+        "avg_reward": 85.61299999999987,
+        "avg_comfort": 94.6058091286307,
+        "avg_energy": 12.867
+    },
+    "timestamp": "2025-10-07T10:11:18.957121"
+}

@@ -1,0 +1,50 @@
+[
+    {
+        "name": "1: Manhã Fria, Sala Vazia",
+        "start_temp": 19.0,
+        "occupancy": 0,
+        "hour": 8
+    },
+    {
+        "name": "2: Manhã Agradável, Sala Enchendo",
+        "start_temp": 23.0,
+        "occupancy": 25,
+        "hour": 9
+    },
+    {
+        "name": "3: Tarde Quente, Sala Cheia",
+        "start_temp": 28.0,
+        "occupancy": 30,
+        "hour": 14
+    },
+    {
+        "name": "4: Tarde Quente, Sala Superlotada",
+        "start_temp": 29.0,
+        "occupancy": 40,
+        "hour": 15
+    },
+    {
+        "name": "5: Fim de Tarde, Sala Esvaziando",
+        "start_temp": 25.0,
+        "occupancy": 5,
+        "hour": 18
+    },
+    {
+        "name": "6: Noite, Sala Vazia (Horário de Pico)",
+        "start_temp": 24.0,
+        "occupancy": 0,
+        "hour": 20
+    },
+    {
+        "name": "7: Onda de Calor Extrema (Estresse)",
+        "start_temp": 32.0,
+        "occupancy": 30,
+        "hour": 15
+    },
+    {
+        "name": "8: Inverno Hipotético (Inação)",
+        "start_temp": 12.0,
+        "occupancy": 10,
+        "hour": 10
+    }
+]
