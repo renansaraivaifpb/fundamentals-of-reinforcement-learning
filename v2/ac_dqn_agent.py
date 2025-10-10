@@ -20,22 +20,51 @@ from collections import deque, namedtuple
 from dataclasses import dataclass, asdict
 import pickle
 import logging
+import math
 
 # Estrutura para armazenar transições
 Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward', 'done'))
 
 # Rede Neural para aproximar a função Q
 class QNetwork(nn.Module):
-    def __init__(self, state_size, action_size):
+    """
+    Rede Neural aprimorada para aproximar a função Q.
+    Melhorias:
+    - Maior profundidade (3 camadas ocultas).
+    - Normalização de Camada (LayerNorm) após cada camada linear para estabilidade.
+    - LeakyReLU como função de ativação para evitar o problema de 'neurônios mortos'.
+    - Dropout como forma de regularização para melhorar a generalização.
+    - Estruturada com nn.Sequential para maior clareza.
+    """
+    def __init__(self, state_size: int, action_size: int, hidden_dim1: int = 256, hidden_dim2: int = 128, hidden_dim3: int = 64):
         super(QNetwork, self).__init__()
-        self.layer1 = nn.Linear(state_size, 128)
-        self.layer2 = nn.Linear(128, 128)
-        self.layer3 = nn.Linear(128, action_size)
+        
+        self.layers = nn.Sequential(
+            # Bloco 1
+            nn.Linear(state_size, hidden_dim1),
+            nn.LayerNorm(hidden_dim1),
+            nn.LeakyReLU(0.01),
+            nn.Dropout(0.17),
 
-    def forward(self, state):
-        x = torch.relu(self.layer1(state))
-        x = torch.relu(self.layer2(x))
-        return self.layer3(x)
+            # Bloco 2
+            nn.Linear(hidden_dim1, hidden_dim2),
+            nn.LayerNorm(hidden_dim2),
+            nn.LeakyReLU(0.01),
+            nn.Dropout(0.14),
+
+            # Bloco 2
+            nn.Linear(hidden_dim2, hidden_dim3),
+            nn.LayerNorm(hidden_dim3),
+            nn.LeakyReLU(0.01),
+            nn.Dropout(0.9),
+
+            # Camada de Saída
+            nn.Linear(hidden_dim3, action_size)
+        )
+
+    def forward(self, state: torch.Tensor) -> torch.Tensor:
+        """Define a passagem para a frente (forward pass) da rede."""
+        return self.layers(state)
 
 # Buffer de Replay para armazenar experiências
 class ReplayBuffer:
@@ -56,10 +85,10 @@ class DQNConfig:
     state_size: int = 4 # [temp, occupancy, sin(hour), cos(hour)]
     action_size: int = 4 # [OFF, LOW, MED, HIGH]
     episodes: int = 2000 # DQN geralmente converge mais rápido
-    buffer_size: int = 100000
+    buffer_size: int = 1000000
     batch_size: int = 64
     gamma: float = 0.99
-    alpha: float = 1e-3 # Learning rate para o otimizador
+    alpha: float = 1e-4 # Learning rate para o otimizador
     tau: float = 1e-3 # Para soft update da target network
     update_every: int = 4 # Com que frequência atualizar a rede
     epsilon_start: float = 1.0
@@ -81,6 +110,33 @@ class ACDQNAgent:
         self.t_step = 0
         self.epsilon = self.config.epsilon_start
         self.training_history = {}
+        
+        # --- INICIALIZA O NORMALIZADOR ---
+        self.reward_normalizer = self.RewardNormalizer()
+
+    class RewardNormalizer:
+        """Calcula a média e o desvio padrão das recompensas de forma online."""
+        def __init__(self, epsilon=1e-8):
+            self.mean = 0.0
+            self.variance = 1.0
+            self.std = 1.0
+            self.count = epsilon
+
+        def update(self, reward: float):
+            """Atualiza as estatísticas com uma nova recompensa usando o algoritmo de Welford."""
+            self.count += 1
+            delta = reward - self.mean
+            self.mean += delta / self.count
+            delta2 = reward - self.mean
+            self.variance = (self.variance * (self.count - 1) + delta * delta2) / self.count
+            self.std = math.sqrt(self.variance)
+
+        def normalize(self, reward: float) -> float:
+            """Atualiza as estatísticas e retorna a recompensa normalizada."""
+            self.update(reward)
+            # Normaliza e limita para evitar valores extremos no início
+            return np.clip( (reward - self.mean) / (self.std + 1e-8), -5, 5)
+        
     def evaluate(self, env, episodes: int = 10):
         """Avalia a política aprendida do agente DQN sem exploração."""
         all_stats = {'episode_rewards': [], 'comfort_percentages': [], 'energy_consumptions': []}
@@ -185,14 +241,17 @@ class ACDQNAgent:
             
             while not done:
                 action = self.choose_action(state, training=True)
-                _, reward, terminated, truncated, info = env.step(action)
+                _, raw_reward, terminated, truncated, info = env.step(action)
+                # Normaliza a recompensa antes de usá-la
+                reward = self.reward_normalizer.normalize(raw_reward)
+                
                 done = terminated or truncated
                 next_state = info['continuous_state']
                 
                 self.step(state, np.array([action]), np.array([reward]), next_state, np.array([done]))
                 
                 state = next_state
-                episode_reward += reward
+                episode_reward += raw_reward # Logamos a recompensa crua para análise
 
             # Atualiza epsilon
             self.epsilon = max(self.config.epsilon_min, self.epsilon * self.config.epsilon_decay)

@@ -138,12 +138,14 @@ class ClassroomACEnvironment:
     
     def get_continuous_state(self) -> np.ndarray:
         """Retorna o estado na forma contínua para uso em DQN."""
-        # Normalização é crucial para redes neurais
+        # --- Normalização Min-Max para a faixa [0, 1] ---
         norm_temp = (self.current_temp - 15) / (35 - 15)
         norm_occ = self.occupancy / self.config.max_occupancy
-        # Usar seno/cosseno para capturar a natureza cíclica do tempo
+        
+        # --- Normalização Cíclica para a faixa [-1, 1] ---
         sin_hour = np.sin(2 * np.pi * self.hour_of_day / 24)
         cos_hour = np.cos(2 * np.pi * self.hour_of_day / 24)
+        
         return np.array([norm_temp, norm_occ, sin_hour, cos_hour], dtype=np.float32)
 
     def _get_comfort_level(self) -> ComfortLevel:
