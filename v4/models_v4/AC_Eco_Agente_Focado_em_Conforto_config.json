@@ -1,0 +1,23 @@
+{
+    "ac_setup_name": "AC_Eco",
+    "agent_personality_name": "Agente_Focado_em_Conforto",
+    "params": {
+        "env_params": {
+            "thermal_mass": 15.0,
+            "action_change_penalty": -5.0,
+            "comfort_bonus": 50.0,
+            "energy_penalty_factor": 0.05,
+            "ac_cooling_power": {
+                "OFF": 0.0,
+                "LOW": 2.0,
+                "MEDIUM": 4.0,
+                "HIGH": 6.0
+            }
+        },
+        "agent_params": {
+            "learning_rate": 0.0001,
+            "batch_size": 32
+        },
+        "action_repeat": 1
+    }
+}

@@ -107,7 +107,7 @@ if __name__ == '__main__':
     parser.add_argument(
         "--scenarios", 
         type=str, 
-        default="scenarios.json", 
+        default="C:/Users/engre/Documents/reinforcement/air_conditioning_classroom/v3/scenarios.json", 
         help="Arquivo JSON com os cenários de teste (padrão: 'scenarios.json')."
     )
     args = parser.parse_args()

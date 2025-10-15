@@ -1,0 +1,21 @@
+{
+    "ac_setup_name": "AC_Eco",
+    "agent_personality_name": "Agente_Estavel",
+    "params": {
+        "env_params": {
+            "thermal_mass": 40.0,
+            "action_change_penalty": -50.0,
+            "comfort_bonus": 20.0,
+            "ac_cooling_power": {
+                "OFF": 0.0,
+                "LOW": 2.0,
+                "MEDIUM": 4.0,
+                "HIGH": 6.0
+            }
+        },
+        "agent_params": {
+            "learning_rate": 3e-05
+        },
+        "action_repeat": 3
+    }
+}
