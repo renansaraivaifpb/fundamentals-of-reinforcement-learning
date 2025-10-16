@@ -1,0 +1,23 @@
+{
+    "ac_setup_name": "AC_Super",
+    "agent_personality_name": "Agente_Equilibrado",
+    "params": {
+        "env_params": {
+            "thermal_mass": 25.0,
+            "action_change_penalty": -10.0,
+            "comfort_bonus": 15.0,
+            "comfort_sensitivity": 0.6,
+            "ac_cooling_power": {
+                "OFF": 0.0,
+                "LOW": 8.0,
+                "MEDIUM": 16.0,
+                "HIGH": 24.0
+            }
+        },
+        "agent_params": {
+            "learning_rate": 5e-05,
+            "batch_size": 64
+        },
+        "action_repeat": 2
+    }
+}

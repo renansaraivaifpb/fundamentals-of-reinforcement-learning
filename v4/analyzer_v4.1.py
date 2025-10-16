@@ -18,45 +18,50 @@ except ImportError:
     print("ERRO: Certifique-se de que 'classroom_ac_env_v4.py' está na mesma pasta.")
     exit()
 
-def run_sb3_simulation(model_path: str, scenario: dict, env: ClassroomACEnv) -> pd.DataFrame:
+def run_sb3_simulation(model_path: str, scenario: dict, env: ClassroomACEnv):
     """
-    Roda uma simulação completa de 24h para um modelo e cenário, e retorna o histórico.
+    Roda uma simulação, exibindo os detalhes da física a cada passo com um print customizado.
     """
     model_name = os.path.basename(model_path).replace('.zip', '')
-    print(f"\n--- Simulando cenário: '{scenario['name']}' para o agente: {model_name} ---")
-    
+    print(f"\n--- Analisando o cenário: '{scenario['name']}' para o agente: {model_name} ---")
+
     try:
         model = DQN.load(model_path, env=env)
     except Exception as e:
         print(f"Erro ao carregar o modelo '{model_path}': {e}"); return pd.DataFrame()
 
     obs, info = env.reset(options=scenario)
-    history = [info]
+    history = []
     
-    # Roda por 240 passos para simular um ciclo diário completo
-    for step in range(239):
+    # Mapeia o valor da ação (0, 1, 2, 3) para seu nome ('OFF', 'LOW', ...)
+    action_map = {state.value: state.name for state in ACState}
+    
+    print("\nIniciando simulação passo a passo com depuração da física:")
+    for step in range(120):
         action, _ = model.predict(obs, deterministic=True)
-        obs, _, terminated, truncated, info = env.step(int(action))
-        action_map = {0: 'OFF', 1: 'LOW', 2: 'MEDIUM', 3: 'HIGH'}
-        info.update({
-            'step': step + 1, 
-            'action': int(action)
-        })
-        history.append(info)
+        obs, reward, terminated, truncated, info = env.step(int(action))
+
+        # --- SEU BLOCO DE PRINT CUSTOMIZADO IMPLEMENTADO AQUI ---
         print(f"\n--- Passo {step + 1} ---")
-        print(f"Temperatura Externa: {info['debug_outdoor_temp']:.2f}°C")
-        print(f"Temperatura Interna: {info['temperature']:.2f}°C")
-        print(f"Ganho de Calor Total: {info['debug_total_heat_gain']:.2f} kW")
-        print(f"Efeito de Resfriamento: {info['debug_cooling_effect']:.2f} kW")
-        print(f"Calor Líquido (Net Heat): {info['debug_net_heat']:.2f} kW")
-        print(f"Variação de Temperatura: {info['debug_temp_change']:.2f}°C")
-        print(f"Nível de Ruído: {info['debug_noise']:.2f} dB")
-        print(f"Ação do AC: {action_map.get(info['action'], 'UNKNOWN')}")
+        print(f"Temperatura Externa: {info.get('debug_outdoor_temp', 0):.2f}°C")
+        print(f"Temperatura Interna: {info.get('temperature', 0):.2f}°C")
+        print(f"Ganho de Calor Total: {info.get('debug_total_heat_gain', 0):.2f}")
+        print(f"Efeito de Resfriamento: {info.get('debug_cooling_effect', 0):.2f}")
+        print(f"Calor Líquido (Net Heat): {info.get('debug_net_heat', 0):.2f}")
+        print(f"Variação de Temperatura: {info.get('debug_temp_change', 0):.2f}°C")
+        print(f"Nível de Ruído: {info.get('debug_noise', 0):.3f}") # Usando .3f para mais precisão no ruído
+        print(f"Ação do AC: {action_map.get(int(action), 'UNKNOWN')}")
+        # --------------------------------------------------------
+
+        # O resto do loop continua normalmente para coletar dados para o gráfico
+        info.update({'step': step, 'action': int(action)})
+        info['energy_consumption'] = env.config.ac_energy_consumption.get(ACState(int(action)), 0)
+        history.append(info)
 
         if terminated or truncated:
             break
-            
-    return pd.DataFrame(history)
+        df = pd.DataFrame(history)
+    return df
 
 def plot_and_analyze_simulation(df: pd.DataFrame, model_name: str, scenario_name: str, env: ClassroomACEnv) -> tuple:
     """

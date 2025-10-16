@@ -27,7 +27,7 @@ class ClassroomConfig:
     cold_action_penalty: float = -20.0 # Penalidade severa por ligar o AC desnecessariamente no frio.
 
     # Parâmetros Físicos
-    thermal_mass: float = 1000.0
+    thermal_mass: float = 100.0
     heat_transfer_coeff: float = 0.5
     heat_gain_per_person: float = 0.1
     temperature_noise_std: float = 0.01
