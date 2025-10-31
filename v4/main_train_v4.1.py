@@ -17,14 +17,8 @@ from classroom_ac_env_v4 import ClassroomACEnv, ClassroomConfig, ActionRepeatWra
 if __name__ == '__main__':
     # --- 1. GRADE DE TESTES DE HARDWARE (CONFIGURAÇÕES DO AR-CONDICIONADO) ---
     ac_setups = {
-        "AC_Eco": {
-            'ac_cooling_power': {'OFF': 0.0, 'LOW': 2.0, 'MEDIUM': 4.0, 'HIGH': 6.0}
-        },
-        "AC_Padrao": {
-            'ac_cooling_power': {'OFF': 0.0, 'LOW': 4.0, 'MEDIUM': 8.0, 'HIGH': 12.0}
-        },
         "AC_Super": {
-            'ac_cooling_power': {'OFF': 0.0, 'LOW': 8.0, 'MEDIUM': 16.0, 'HIGH': 24.0}
+            'ac_cooling_power': {'OFF': 0.0, 'LOW': 24.0, 'MEDIUM': 46.0, 'HIGH': 64.0}
         }
     }
 
@@ -33,33 +27,6 @@ if __name__ == '__main__':
         "Agente_Equilibrado": {
             "env_params": {"thermal_mass": 25.0, "action_change_penalty": -10.0, "comfort_bonus": 15.0, "comfort_sensitivity": 0.6},
             "agent_params": {"learning_rate": 5e-5, "batch_size": 64},
-            "action_repeat": 2,
-        },
-        "Agente_Paciente_Economico": {
-            "env_params": {"thermal_mass": 80.0, "action_change_penalty": -25.0, "energy_penalty_factor": 0.3},
-            "agent_params": {"learning_rate": 1e-5, "batch_size": 128},
-            "action_repeat": 4,
-        },
-        "Agente_Focado_em_Conforto": {
-            "env_params": {"thermal_mass": 15.0, "action_change_penalty": -5.0, "comfort_bonus": 50.0, "energy_penalty_factor": 0.05},
-            "agent_params": {"learning_rate": 1e-4, "batch_size": 32},
-            "action_repeat": 1,
-        },
-        "Agente_Estavel": {
-            "env_params": {"thermal_mass": 40.0, "action_change_penalty": -50.0, "comfort_bonus": 20.0},
-            "agent_params": {"learning_rate": 3e-5},
-            "action_repeat": 3,
-        },
-        # --- NOVA PERSONALIDADE ADICIONADA AQUI ---
-        "Agente_Smart_Cold": {
-            "env_params": {
-                "thermal_mass": 25.0, 
-                "action_change_penalty": -15.0, 
-                "comfort_bonus": 20.0, 
-                "comfort_sensitivity": 0.7,
-                "cold_action_penalty": -50.0 # A penalidade por resfriar no frio
-            },
-            "agent_params": {"learning_rate": 5e-5},
             "action_repeat": 2,
         }
     }

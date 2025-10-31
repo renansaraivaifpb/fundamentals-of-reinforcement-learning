@@ -1,8 +1,8 @@
-# analyzer_v4.1.py
+# analyzer_random_scenarios.py
 # -*- coding: utf-8 -*-
 """
-Versão 4.1: Ferramenta de Análise Comportamental e Geração de Placar Final.
-Análise e plotagem do ciclo completo de 24h (0-240 passos).
+Versão 4: Ferramenta de Análise com Cenários Aleatórios.
+Testa os agentes em N cenários gerados aleatoriamente.
 """
 import os
 import glob
@@ -12,6 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from stable_baselines3 import DQN
 import argparse
+import random
 
 # Desativa avisos comuns
 import warnings
@@ -24,13 +25,26 @@ except ImportError:
     print("ERRO: Certifique-se de que 'classroom_ac_env_v4.py' está na mesma pasta.")
     exit()
 
+def generate_random_scenario(scenario_index: int) -> dict:
+    """Gera um único cenário com condições iniciais aleatórias."""
+    start_temp = round(random.uniform(18.0, 32.0), 1)
+    occupancy = random.randint(0, 30)
+    hour = random.randint(0, 23) # Começa em qualquer hora do dia
+    
+    return {
+        "name": f"Aleatório {scenario_index}: {start_temp}°C, {occupancy} Pessoas, {hour}h",
+        "start_temp": start_temp,
+        "occupancy": occupancy,
+        "hour": hour
+    }
+
 def run_and_analyze_simulation(model_path: str, scenario: dict, env: ClassroomACEnv) -> tuple:
     """
-    Roda uma simulação de 24h, exibe detalhes da física, plota o gráfico
+    Roda uma simulação, plota o gráfico focado em 7h-22h
     e retorna as métricas de desempenho.
     """
     model_name = os.path.basename(model_path).replace('.zip', '')
-    print(f"\n--- Analisando o cenário: '{scenario['name']}' para o agente: {model_name} ---")
+    print(f"\n--- Analisando o cenário: '{scenario['name']}' ---")
     
     try:
         model = DQN.load(model_path, env=env)
@@ -39,98 +53,61 @@ def run_and_analyze_simulation(model_path: str, scenario: dict, env: ClassroomAC
 
     obs, info = env.reset(options=scenario)
     history = [info]
-    temp_anterior = info['temperature']
-    
-    action_map = {state.value: state.name for state in ACState}
-    
-    # print("\nIniciando simulação passo a passo com depuração da física:")
     
     # Simula por 240 passos (24h)
     for step in range(240): 
         action, _ = model.predict(obs, deterministic=True)
         obs, reward, terminated, truncated, info = env.step(int(action))
-
-        current_hour = info.get('hour', 0)
-        
-        if 13 <= current_hour <= 22:
-            action_chosen = str(info['ac_state'])
-            cooling_effect = info.get('debug_cooling_effect', 0)
-            net_heat = info.get('debug_net_heat', 0)
-            temp_change = info.get('debug_temp_change', 0)
-            noise = info.get('debug_noise', 0)
-            current_temp = info['temperature']
-            outdoor_temp = info.get('debug_outdoor_temp', 0)
-            external_heat = info.get('debug_external_heat', 0)
-            total_heat_gain = info.get('debug_total_heat_gain', 0)
-            people_heat = total_heat_gain - external_heat
-            occupancy = info.get('occupancy', 0)
-
-            log_output = (
-                f"--- Passo {step + 1} (Hora: {current_hour}h) ---\n"
-                f"Temperatura Externa: {outdoor_temp:.2f}°C\n"
-                f"Temperatura Interna: {current_temp:.2f}°C\n"
-                f"Número de Ocupantes: {occupancy}\n"
-                f"Ganho de Calor dos Ocupantes: {people_heat:.2f}\n"
-                f"Ganho de Calor Total: {total_heat_gain:.2f}\n"
-                f"Efeito de Resfriamento: {-cooling_effect:.2f}\n"
-                f"Calor Líquido (Net Heat): {net_heat:.2f}\n"
-                f"Variação de Temperatura (Base): {temp_change:.3f}°C\n"
-                f"Nível de Ruído: {noise:.3f}\n"
-                f"Ação do AC: {action_chosen}\n"
-                f"-> Temp Update: {temp_anterior:.2f}°C + ({temp_change:.3f})°C + Ruído({noise:.3f})°C => {current_temp:.2f}°C"
-            )
-            print(log_output)
-            print("-" * 60)
-
-        temp_anterior = info['temperature']
         info.update({'step': step + 1, 'action': int(action)})
         history.append(info)
-
         if terminated or truncated:
             break
     
     df = pd.DataFrame(history)
     
-    # --- ANÁLISE E PLOTAGEM (AGORA SOBRE O DATAFRAME COMPLETO 'df') ---
+    # --- ANÁLISE E PLOTAGEM ---
     
+    # Filtra o DataFrame para o período de 7h às 22h
+    df_filtered = df[(df['hour'] >= 7) & (df['hour'] <= 22)].copy()
+    
+    if df_filtered.empty:
+        print(f"  -> Nenhum dado encontrado no período de análise (7h-22h).")
+        plt.close('all')
+        return (None, None)
+
     env_config = env.config
     
-    # Calcula métricas com base no dia inteiro
-    is_in_comfort = (df['temperature'] >= env_config.temp_comfort_min) & (df['temperature'] <= env_config.temp_comfort_max)
+    is_in_comfort = (df_filtered['temperature'] >= env_config.temp_comfort_min) & (df_filtered['temperature'] <= env_config.temp_comfort_max)
     comfort_percentage = is_in_comfort.mean() * 100
     
-    df['energy_consumption'] = df['action'].apply(
+    df_filtered['energy_consumption'] = df_filtered['action'].apply(
         lambda a: 0 if pd.isna(a) else env_config.ac_energy_consumption.get(ACState(int(a)), 0)
     )
-    total_energy_kwh = (df['energy_consumption'] * env.dt).sum()
+    total_energy_kwh = (df_filtered['energy_consumption'] * env.dt).sum()
 
     # Plotagem
     fig, ax1 = plt.subplots(figsize=(15, 7))
     ax2 = ax1.twinx()
 
     title = (f"Agente: {model_name} | Cenário: {scenario['name']}\n"
-             f"Análise do Período Completo (24h)\n"
+             f"Análise do Período (7h às 22h)\n"
              f"(Tempo em Conforto: {comfort_percentage:.1f}% | Energia Total: {total_energy_kwh:.2f} kWh)")
     ax1.set_title(title, fontsize=16)
     
-    # --- ALTERAÇÃO: Plotando 'df' (o dataframe completo) ---
-    ax1.plot(df['step'], df['temperature'], color='royalblue', lw=2.5, label='Temperatura (°C)')
-    ax2.step(df['step'], df['action'], where='post', color='crimson', alpha=0.7, lw=2, label='Ação do AC')
+    df_plot = df_filtered.reset_index(drop=True)
+    
+    ax1.plot(df_plot.index, df_plot['temperature'], color='royalblue', lw=2.5, label='Temperatura (°C)')
+    ax2.step(df_plot.index, df_plot['action'], where='post', color='crimson', alpha=0.7, lw=2, label='Ação do AC')
     ax1.axhspan(env_config.temp_comfort_min, env_config.temp_comfort_max, color='green', alpha=0.15, label='Faixa de Conforto')
     
-    # --- ALTERAÇÃO: Eixo X formatado para o dia inteiro ---
-    start_hour = scenario.get('hour', 0)
+    # Lógica de rótulos de hora (ticks)
+    num_ticks = min(10, len(df_plot))
+    tick_indices = np.linspace(0, len(df_plot) - 1, num_ticks, dtype=int)
+    tick_labels = [f"{int(h)}h" for h in df_plot['hour'].iloc[tick_indices]]
     
-    # Mostra marcas a cada 20 passos (2 horas)
-    tick_positions = np.arange(0, 241, 20)
-    
-    # Cria os rótulos de hora para cada posição
-    tick_labels = [f"{int((start_hour + (step * env.dt)) % 24)}h" for step in tick_positions]
-    
-    ax1.set_xticks(tick_positions)
+    ax1.set_xticks(tick_indices)
     ax1.set_xticklabels(tick_labels)
-    ax1.set_xlabel(f"Hora do Dia (Simulação de 24h iniciando às {start_hour}h)", fontsize=12)
-    # --- FIM DAS ALTERAÇÕES ---
+    ax1.set_xlabel(f"Hora do Dia (Período de Análise: 7h-22h)", fontsize=12)
     
     ax2.set_ylabel("Ação do AC", color='crimson')
     ax2.set_yticks([0, 1, 2, 3]); ax2.set_yticklabels(['OFF', 'LOW', 'MED', 'HIGH'])
@@ -143,32 +120,15 @@ def run_and_analyze_simulation(model_path: str, scenario: dict, env: ClassroomAC
     return comfort_percentage, total_energy_kwh
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Ferramenta de análise V4.1.")
-    parser.add_argument(
-        "-m", "--models",
-        type=str,
-        help="(Opcional) Nomes de modelos para analisar, separados por vírgula."
-    )
-    parser.add_argument(
-        "--models_dir",
-        type=str,
-        default="models_v4_grid_search",
-        help="Diretório dos modelos."
-    )
-    parser.add_argument(
-        "--scenarios",
-        type=str,
-        default="scenarios.json",
-        help="Arquivo JSON com os cenários de teste."
-    )
+    parser = argparse.ArgumentParser(description="Ferramenta de análise V4.1 com cenários aleatórios.")
+    parser.add_argument("-m", "--models", type=str, help="Nomes de modelos para analisar, separados por vírgula.")
+    parser.add_argument("--models_dir", type=str, default="models_v4_grid_search", help="Diretório dos modelos.")
+    parser.add_argument("-n", "--num_scenarios", type=int, default=5, help="Número de cenários aleatórios para gerar.")
     args = parser.parse_args()
 
-    try:
-        with open(args.scenarios, 'r', encoding='utf-8') as f:
-            scenarios_to_test = json.load(f)
-        print(f"{len(scenarios_to_test)} cenários carregados de '{args.scenarios}'.")
-    except FileNotFoundError:
-        print(f"ERRO: Arquivo de cenários '{args.scenarios}' não encontrado."); exit()
+    # --- MELHORIA: GERA CENÁRIOS ALEATÓRIOS ---
+    print(f"Gerando {args.num_scenarios} cenários de teste aleatórios...")
+    scenarios_to_test = [generate_random_scenario(i+1) for i in range(args.num_scenarios)]
 
     model_paths = []
     if args.models:
@@ -222,7 +182,7 @@ if __name__ == '__main__':
     if len(final_summary_data) > 0 and not args.models:
         df_final = pd.DataFrame(final_summary_data)
         print("\n\n" + "="*80)
-        print(f"📊 PLACAR FINAL - DESEMPENHO MÉDIO (Ciclo Completo 24h) 📊")
+        print(f"📊 PLACAR FINAL - DESEMPENHO MÉDIO (Cenários Aleatórios, 7h-22h) 📊")
         print("="*80)
         leaderboard = df_final.groupby('agent').agg(
             comfort_pct_medio=('comfort_pct', 'mean'),

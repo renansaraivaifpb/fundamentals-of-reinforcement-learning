@@ -9,9 +9,9 @@
             "comfort_sensitivity": 0.6,
             "ac_cooling_power": {
                 "OFF": 0.0,
-                "LOW": 8.0,
-                "MEDIUM": 16.0,
-                "HIGH": 24.0
+                "LOW": 24.0,
+                "MEDIUM": 46.0,
+                "HIGH": 64.0
             }
         },
         "agent_params": {

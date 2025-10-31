@@ -27,7 +27,7 @@ class ClassroomConfig:
     cold_action_penalty: float = -20.0 # Penalidade severa por ligar o AC desnecessariamente no frio.
 
     # Parâmetros Físicos
-    thermal_mass: float = 100.0
+    thermal_mass: float = 25.0
     heat_transfer_coeff: float = 0.5
     heat_gain_per_person: float = 0.1
     temperature_noise_std: float = 0.01
@@ -49,7 +49,7 @@ class ClassroomConfig:
     season: str = 'summer'
     energy_cost_peak_hours: Tuple[int, int] = (18, 21)
     energy_penalty_multiplier_peak: float = 1.5
-    ac_cooling_power: Dict = field(default_factory=lambda: {ACState.OFF: 0.0, ACState.LOW: 4.0, ACState.MEDIUM: 8.0, ACState.HIGH: 12.0})
+    ac_cooling_power: Dict = field(default_factory=lambda: {ACState.OFF: 0.0, ACState.LOW: 24.0, ACState.MEDIUM: 46.0, ACState.HIGH: 64.0})
     ac_energy_consumption: Dict = field(default_factory=lambda: {ACState.OFF: 0.0, ACState.LOW: 1.5, ACState.MEDIUM: 3.0, ACState.HIGH: 5.0})
     reward_structure: Dict[str, float] = field(default_factory=lambda: {'VERY_COLD': -15.0, 'COLD': -5.0, 'COMFORTABLE': 1.0, 'WARM': -5.0, 'VERY_HOT': -15.0})
 
@@ -148,6 +148,10 @@ class ClassroomACEnv(gym.Env):
 
         observation = self._get_obs()
         info = self._get_info()
+
+        info['hour'] = self.hour_of_day
+        info['debug_people_heat'] = people_heat
+        info['debug_occupancy'] =    self.occupancy
         info['debug_total_heat_gain'] = total_heat_gain
         info['debug_cooling_effect'] = cooling_effect
         info['debug_net_heat'] = net_heat
