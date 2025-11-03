@@ -88,7 +88,6 @@ class ClassroomACEnv(gym.Env):
         self.occupancy = 0
         self.ac_state = ACState.OFF
         self.time_step = 0
-        self.hour_of_day = 8
         self.dt = 0.1
         self.history = []
 
@@ -105,13 +104,22 @@ class ClassroomACEnv(gym.Env):
     def reset(self, seed: Optional[int] = None, options: Optional[Dict] = None) -> Tuple[np.ndarray, Dict]:
         super().reset(seed=seed)
         self._init_simulation_vars()
+        
+        # --- LÓGICA DE RESET CORRIGIDA ---
+        # 1. Define valores aleatórios como padrão (usado durante o TREINAMENTO)
+        self.start_hour = self.np_random.integers(0, 24) # Salva a hora inicial aleatória
         self.current_temp = self.np_random.uniform(18.0, 30.0)
         self.occupancy = self.np_random.integers(0, self.config.max_occupancy + 1)
-        self.hour_of_day = self.np_random.integers(0, 24)
+        self.hour_of_day = self.start_hour # A hora atual é a hora inicial
+
+        # Sobrescreve os valores se 'options' for fornecido (usado na ANÁLISE)
         if options is not None:
+            self.start_hour = options.get('hour_of_day', self.start_hour) # Salva a hora inicial do cenário
             self.current_temp = options.get('start_temp', self.current_temp)
             self.occupancy = options.get('occupancy', self.occupancy)
-            self.hour_of_day = options.get('hour_of_day', self.hour_of_day)
+            self.hour_of_day = self.start_hour
+        # --- FIM DA CORREÇÃO ---
+
         observation = self._get_obs()
         info = self._get_info()
         self.history = [info]
@@ -125,20 +133,19 @@ class ClassroomACEnv(gym.Env):
         people_heat = self.occupancy * self.config.heat_gain_per_person
         external_heat = self.config.heat_transfer_coeff * (outdoor_temp - self.current_temp)
         cooling_effect = self.config.ac_cooling_power[self.ac_state]
-        
         total_heat_gain = people_heat + external_heat
         net_heat = total_heat_gain - cooling_effect
-        
         temp_change = (net_heat / self.config.thermal_mass) * self.dt
-        
-        # --- O ruído agora é armazenado em uma variável ---
         noise = self.np_random.normal(0, self.config.temperature_noise_std)
-        
         self.current_temp += temp_change + noise
         self.current_temp = np.clip(self.current_temp, 10.0, 40.0)
         
+        # --- LÓGICA DE ATUALIZAÇÃO DA HORA CORRIGIDA ---
         self.time_step += 1
-        self.hour_of_day = (self.hour_of_day + 1) % 24
+        current_hour_float = self.start_hour + (self.time_step * self.dt)
+        self.hour_of_day = int(current_hour_float) % 24
+        # --- FIM DA CORREÇÃO ---
+        
         if self.np_random.random() < 0.1:
             self.occupancy = np.clip(self.occupancy + self.np_random.integers(-5, 6), 0, self.config.max_occupancy)
 

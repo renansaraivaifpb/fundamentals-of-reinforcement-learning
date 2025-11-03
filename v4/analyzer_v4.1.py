@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Versão 4.1: Ferramenta de Análise Comportamental e Geração de Placar Final.
-Análise e plotagem do ciclo completo de 24h (0-240 passos).
+Gera um dashboard consolidado (todos os cenários) para cada agente.
 """
 import os
 import glob
@@ -24,64 +24,33 @@ except ImportError:
     print("ERRO: Certifique-se de que 'classroom_ac_env_v4.py' está na mesma pasta.")
     exit()
 
-def run_and_analyze_simulation(model_path: str, scenario: dict, env: ClassroomACEnv) -> tuple:
+def run_simulation(model: DQN, scenario: dict, env: ClassroomACEnv) -> pd.DataFrame:
     """
-    Roda uma simulação de 24h, exibe detalhes da física, plota o gráfico
-    e retorna as métricas de desempenho.
+    Roda uma simulação de 40 passos (4h) e retorna o DataFrame.
+    Esta função NÃO plota, apenas simula.
     """
-    model_name = os.path.basename(model_path).replace('.zip', '')
-    print(f"\n--- Analisando o cenário: '{scenario['name']}' para o agente: {model_name} ---")
+    model_name = model.__class__.__name__ # Pega o nome do modelo
+    print(f"  -> Simulando cenário: '{scenario['name']}'...")
     
-    try:
-        model = DQN.load(model_path, env=env)
-    except Exception as e:
-        print(f"Erro ao carregar o modelo '{model_path}': {e}"); return (None, None)
-
     obs, info = env.reset(options=scenario)
-    history = [info]
+    history = [info] # Armazena o estado inicial (step 0)
     temp_anterior = info['temperature']
     
     action_map = {state.value: state.name for state in ACState}
     
-    # print("\nIniciando simulação passo a passo com depuração da física:")
+    simulation_steps = 40
     
-    # Simula por 240 passos (24h)
-    for step in range(240): 
+    for step in range(simulation_steps): 
         action, _ = model.predict(obs, deterministic=True)
         obs, reward, terminated, truncated, info = env.step(int(action))
-
-        current_hour = info.get('hour', 0)
         
-        if 13 <= current_hour <= 22:
-            action_chosen = str(info['ac_state'])
-            cooling_effect = info.get('debug_cooling_effect', 0)
-            net_heat = info.get('debug_net_heat', 0)
-            temp_change = info.get('debug_temp_change', 0)
-            noise = info.get('debug_noise', 0)
-            current_temp = info['temperature']
-            outdoor_temp = info.get('debug_outdoor_temp', 0)
-            external_heat = info.get('debug_external_heat', 0)
-            total_heat_gain = info.get('debug_total_heat_gain', 0)
-            people_heat = total_heat_gain - external_heat
-            occupancy = info.get('occupancy', 0)
-
-            log_output = (
-                f"--- Passo {step + 1} (Hora: {current_hour}h) ---\n"
-                f"Temperatura Externa: {outdoor_temp:.2f}°C\n"
-                f"Temperatura Interna: {current_temp:.2f}°C\n"
-                f"Número de Ocupantes: {occupancy}\n"
-                f"Ganho de Calor dos Ocupantes: {people_heat:.2f}\n"
-                f"Ganho de Calor Total: {total_heat_gain:.2f}\n"
-                f"Efeito de Resfriamento: {-cooling_effect:.2f}\n"
-                f"Calor Líquido (Net Heat): {net_heat:.2f}\n"
-                f"Variação de Temperatura (Base): {temp_change:.3f}°C\n"
-                f"Nível de Ruído: {noise:.3f}\n"
-                f"Ação do AC: {action_chosen}\n"
-                f"-> Temp Update: {temp_anterior:.2f}°C + ({temp_change:.3f})°C + Ruído({noise:.3f})°C => {current_temp:.2f}°C"
-            )
-            print(log_output)
-            print("-" * 60)
-
+        # Bloco de Print Detalhado (Opcional, descomente o 'if' para ativar)
+        # if True:
+        #     current_hour = info.get('hour', 0)
+        #     action_chosen = str(info['ac_state'])
+        #     # ... (resto da lógica de print)
+        #     print(log_output)
+        
         temp_anterior = info['temperature']
         info.update({'step': step + 1, 'action': int(action)})
         history.append(info)
@@ -89,80 +58,97 @@ def run_and_analyze_simulation(model_path: str, scenario: dict, env: ClassroomAC
         if terminated or truncated:
             break
     
-    df = pd.DataFrame(history)
-    
-    # --- ANÁLISE E PLOTAGEM (AGORA SOBRE O DATAFRAME COMPLETO 'df') ---
+    return pd.DataFrame(history)
+
+def plot_full_dashboard(model_name: str, all_scenario_data: dict, env: ClassroomACEnv, save_dir: str) -> list:
+    """
+    Plota um ÚNICO gráfico com TODOS os cenários de um agente em um grid
+    e salva em um arquivo.
+    """
+    print(f"🎨 Gerando dashboard consolidado para o agente: {model_name}...")
     
     env_config = env.config
+    num_scenarios = len(all_scenario_data)
+    ncols = 2
+    nrows = (num_scenarios + ncols - 1) // ncols # 4 linhas para 8 cenários
     
-    # Calcula métricas com base no dia inteiro
-    is_in_comfort = (df['temperature'] >= env_config.temp_comfort_min) & (df['temperature'] <= env_config.temp_comfort_max)
-    comfort_percentage = is_in_comfort.mean() * 100
+    fig, axes = plt.subplots(nrows, ncols, figsize=(20, 24), squeeze=False, 
+                             gridspec_kw={'hspace': 0.4, 'wspace': 0.15})
+    fig.suptitle(f'Dashboard de Comportamento do Agente: {model_name}\n(Análise das Primeiras 4 Horas)', fontsize=20, weight='bold')
+    axes = axes.flatten()
     
-    df['energy_consumption'] = df['action'].apply(
-        lambda a: 0 if pd.isna(a) else env_config.ac_energy_consumption.get(ACState(int(a)), 0)
-    )
-    total_energy_kwh = (df['energy_consumption'] * env.dt).sum()
+    final_summary_data = []
 
-    # Plotagem
-    fig, ax1 = plt.subplots(figsize=(15, 7))
-    ax2 = ax1.twinx()
+    for i, (scenario_name, df) in enumerate(all_scenario_data.items()):
+        ax1 = axes[i]
+        ax2 = ax1.twinx()
 
-    title = (f"Agente: {model_name} | Cenário: {scenario['name']}\n"
-             f"Análise do Período Completo (24h)\n"
-             f"(Tempo em Conforto: {comfort_percentage:.1f}% | Energia Total: {total_energy_kwh:.2f} kWh)")
-    ax1.set_title(title, fontsize=16)
-    
-    # --- ALTERAÇÃO: Plotando 'df' (o dataframe completo) ---
-    ax1.plot(df['step'], df['temperature'], color='royalblue', lw=2.5, label='Temperatura (°C)')
-    ax2.step(df['step'], df['action'], where='post', color='crimson', alpha=0.7, lw=2, label='Ação do AC')
-    ax1.axhspan(env_config.temp_comfort_min, env_config.temp_comfort_max, color='green', alpha=0.15, label='Faixa de Conforto')
-    
-    # --- ALTERAÇÃO: Eixo X formatado para o dia inteiro ---
-    start_hour = scenario.get('hour', 0)
-    
-    # Mostra marcas a cada 20 passos (2 horas)
-    tick_positions = np.arange(0, 241, 20)
-    
-    # Cria os rótulos de hora para cada posição
-    tick_labels = [f"{int((start_hour + (step * env.dt)) % 24)}h" for step in tick_positions]
-    
-    ax1.set_xticks(tick_positions)
-    ax1.set_xticklabels(tick_labels)
-    ax1.set_xlabel(f"Hora do Dia (Simulação de 24h iniciando às {start_hour}h)", fontsize=12)
-    # --- FIM DAS ALTERAÇÕES ---
-    
-    ax2.set_ylabel("Ação do AC", color='crimson')
-    ax2.set_yticks([0, 1, 2, 3]); ax2.set_yticklabels(['OFF', 'LOW', 'MED', 'HIGH'])
-    
-    lines, labels = ax1.get_legend_handles_labels(); lines2, labels2 = ax2.get_legend_handles_labels()
-    ax2.legend(lines + lines2, labels + labels2, loc='upper right')
-    plt.grid(True)
-    plt.show()
+        # Calcula métricas
+        is_in_comfort = (df['temperature'] >= env_config.temp_comfort_min) & (df['temperature'] <= env_config.temp_comfort_max)
+        comfort_percentage = is_in_comfort.mean() * 100
+        df['energy_consumption'] = df['action'].apply(
+            lambda a: 0 if pd.isna(a) else env_config.ac_energy_consumption.get(ACState(int(a)), 0)
+        )
+        total_energy_kwh = (df['energy_consumption'] * env.dt).sum()
+        
+        final_summary_data.append({
+            'agent': model_name,
+            'scenario': scenario_name,
+            'comfort_pct': comfort_percentage,
+            'total_energy': total_energy_kwh
+        })
 
-    return comfort_percentage, total_energy_kwh
+        # Título do subplot
+        title = (f"{scenario_name}\n"
+                 f"(Conforto: {comfort_percentage:.1f}% | Energia: {total_energy_kwh:.2f} kWh)")
+        ax1.set_title(title, fontsize=12)
+        
+        # Plotagem dos dados (índice vai de 0 a 40)
+        ax1.plot(df.index, df['temperature'], color='royalblue', lw=2.0, label='Temperatura (°C)')
+        ax2.step(df.index, df['action'], where='post', color='crimson', alpha=0.7, lw=1.5, label='Ação do AC')
+        ax1.axhspan(env_config.temp_comfort_min, env_config.temp_comfort_max, color='green', alpha=0.15, label='Faixa de Conforto')
+        
+        # Formata o eixo X com as horas
+        start_hour = int(df['hour'].iloc[0])
+        tick_positions = np.arange(0, 41, 10)
+        tick_labels = [f"{int((start_hour + (step * env.dt)) % 24)}h" for step in tick_positions]
+        
+        ax1.set_xticks(tick_positions)
+        ax1.set_xticklabels(tick_labels)
+        ax1.set_xlabel(f"Hora do Dia (Iniciando às {start_hour}h)", fontsize=10)
+        
+        ax1.set_ylabel("Temperatura (°C)", color='royalblue')
+        ax2.set_ylabel("Ação do AC", color='crimson')
+        ax2.set_yticks([0, 1, 2, 3]); ax2.set_yticklabels(['OFF', 'LOW', 'MED', 'HIGH'])
+        
+        lines, labels = ax1.get_legend_handles_labels(); lines2, labels2 = ax2.get_legend_handles_labels()
+        ax1.legend(lines + lines2, labels + labels2, loc='upper right', fontsize=8)
+        ax1.grid(True)
+
+    # Esconde os eixos não utilizados
+    for j in range(i + 1, len(axes)):
+        axes[j].set_visible(False)
+        
+    plt.tight_layout(rect=[0, 0.03, 1, 0.96])
+    
+    # Salva o dashboard completo
+    save_path = os.path.join(save_dir, f'dashboard_completo_{model_name.replace(" ", "_")}.png')
+    plt.savefig(save_path, dpi=150)
+    print(f"  -> Dashboard consolidado salvo em: {save_path}")
+    plt.close(fig) # Fecha a figura para economizar memória
+    
+    return final_summary_data
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Ferramenta de análise V4.1.")
-    parser.add_argument(
-        "-m", "--models",
-        type=str,
-        help="(Opcional) Nomes de modelos para analisar, separados por vírgula."
-    )
-    parser.add_argument(
-        "--models_dir",
-        type=str,
-        default="models_v4_grid_search",
-        help="Diretório dos modelos."
-    )
-    parser.add_argument(
-        "--scenarios",
-        type=str,
-        default="scenarios.json",
-        help="Arquivo JSON com os cenários de teste."
-    )
+    parser.add_argument("-m", "--models", type=str, help="(Opcional) Nomes de modelos para analisar, separados por vírgula.")
+    parser.add_argument("--models_dir", type=str, default="models_v4_grid_search", help="Diretório dos modelos.")
+    parser.add_argument("--scenarios", type=str, default="scenarios.json", help="Arquivo JSON com os cenários de teste.")
+    parser.add_argument("--save_dir", type=str, default="plots_analysis_v4_1", help="Pasta para salvar os dashboards.")
     args = parser.parse_args()
 
+    os.makedirs(args.save_dir, exist_ok=True)
+    
     try:
         with open(args.scenarios, 'r', encoding='utf-8') as f:
             scenarios_to_test = json.load(f)
@@ -185,7 +171,7 @@ if __name__ == '__main__':
 
     print(f"\nEncontrados {len(model_paths)} modelos para analisar.")
 
-    final_summary_data = []
+    final_summary_data_all_agents = []
     for model_path in model_paths:
         model_name = os.path.basename(model_path).replace('.zip', '')
         print("\n" + "#"*80 + f"\nAnalisando modelo: {model_name}\n" + "#"*80)
@@ -206,23 +192,30 @@ if __name__ == '__main__':
         config = ClassroomConfig(**env_params)
         env = ClassroomACEnv(config=config)
         
+        # Carrega o modelo UMA VEZ por agente
+        try:
+            model = DQN.load(model_path, env=env)
+        except Exception as e:
+            print(f"Erro ao carregar o modelo '{model_path}': {e}"); continue
+        
+        # Coleta dados de todos os cenários para este modelo
+        scenario_data_for_model = {}
         for scenario in scenarios_to_test:
-            metrics = run_and_analyze_simulation(model_path, scenario, env)
-            
-            if metrics is not None and metrics[0] is not None:
-                comfort_pct, total_energy = metrics
-                
-                final_summary_data.append({
-                    'agent': model_name,
-                    'scenario': scenario['name'],
-                    'comfort_pct': comfort_pct,
-                    'total_energy': total_energy
-                })
+            # Passa o modelo JÁ CARREGADO para a simulação
+            df_result = run_simulation(model, scenario, env) 
+            if not df_result.empty:
+                scenario_data_for_model[scenario['name']] = df_result
+        
+        # Plota o dashboard consolidado para o modelo
+        if scenario_data_for_model:
+            summary_data = plot_full_dashboard(model_name, scenario_data_for_model, env, args.save_dir)
+            final_summary_data_all_agents.extend(summary_data)
     
-    if len(final_summary_data) > 0 and not args.models:
-        df_final = pd.DataFrame(final_summary_data)
+    # Placar Final
+    if len(final_summary_data_all_agents) > 0 and not args.models:
+        df_final = pd.DataFrame(final_summary_data_all_agents)
         print("\n\n" + "="*80)
-        print(f"📊 PLACAR FINAL - DESEMPENHO MÉDIO (Ciclo Completo 24h) 📊")
+        print(f"📊 PLACAR FINAL - DESEMPENHO MÉDIO (Primeiras 4 Horas) 📊")
         print("="*80)
         leaderboard = df_final.groupby('agent').agg(
             comfort_pct_medio=('comfort_pct', 'mean'),
