@@ -7,17 +7,17 @@ Um agente de IA que aprende a estratégia ótima do Blackjack do zero, utilizand
 
 ---
 
-## 📖 Sumário
+## Sumário
 
 Este projeto explora uma questão fundamental do Aprendizado por Reforço (RL): como um agente pode dominar um jogo de probabilidades como o Blackjack sem conhecimento prévio de suas regras ou estratégias?
 
 O objetivo é construir e treinar um agente capaz de desenvolver uma política de decisão ótima (`π*`) unicamente através da experiência adquirida ao jogar milhares de partidas. A solução é uma implementação em Python do algoritmo **Monte Carlo com Exploring Starts**, um método *model-free* que aprende o valor de cada ação em cada estado do jogo.
 
-## 🃏 O Desafio: Dominando o Blackjack
+## O Desafio: Dominando o Blackjack
 
 No Blackjack, o objetivo é vencer a mão do Dealer (a Mesa) sem ultrapassar 21 pontos. O agente precisa tomar decisões sequenciais (Pedir carta ou Parar) com base em sua soma atual, na carta visível do Dealer e na presença de um Ás utilizável. Este ambiente oferece um cenário clássico para problemas de RL, com um balanço claro entre risco e recompensa.
 
-## 🧠 Metodologia: Aprendizado por Reforço
+## Metodologia: Aprendizado por Reforço
 
 A aprendizagem do agente é guiada pelo princípio da **Iteração de Política Generalizada (GPI)**, um ciclo contínuo de avaliação e melhoria da política.
 
@@ -31,7 +31,7 @@ $$ Q(s, a) \leftarrow Q(s, a) + \alpha [G_t - Q(s, a)] $$
 
 *(Nesta implementação "first-visit", α é efetivamente 1/N(s,a), onde N é a contagem de visitas, pois calculamos a média direta dos retornos).*
 
-## 🛠️ Pilha Tecnológica
+## Pilha Tecnológica
 
 -   **Simulação de Ambiente:** `gymnasium`
 -   **Computação Numérica:** `numpy`
@@ -39,7 +39,7 @@ $$ Q(s, a) \leftarrow Q(s, a) + \alpha [G_t - Q(s, a)] $$
 -   **Visualização de Dados:** `matplotlib`
 -   **Barra de Progresso:** `tqdm`
 
-## ▶️ Uso
+## Uso
 
 Para iniciar o treinamento do agente, execute o script principal:
 
@@ -49,7 +49,7 @@ python main.py
 
 O script irá treinar o agente por 500.000 episódios, exibindo o progresso e a política aprendida para cenários específicos a cada 50.000 episódios. Ao final do treinamento, dois gráficos serão gerados e exibidos.
 
-## 📊 Resultados e Análise
+## Resultados e Análise
 
 Após 500.000 episódios, o agente convergiu para uma política estável, descobrindo 280 estados de jogo únicos e alcançando uma recompensa média de **-0.2533** nos últimos 50.000 jogos — um resultado robusto que se aproxima do desempenho ótimo.
 
