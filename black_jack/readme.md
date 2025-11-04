@@ -90,7 +90,3 @@ A política final é visualizada abaixo. Cada mapa de calor mostra a ação idea
 ![Política Ótima Aprendida](assets/final_policy.png)
 
 Nota-se que o agente é muito mais agressivo quando possui um Ás utilizável, pois compreendeu que ele atua como uma "rede de segurança", eliminando o risco imediato de estourar e abrindo oportunidades para melhorar a mão.
-
-### Conexão com Engenharia de Controle e Automação
-
-Este projeto serve como uma prova de conceito para a aplicação de abordagens de RL em problemas de otimização. A mesma lógica usada para otimizar decisões em um jogo pode ser transposta para otimizar políticas de controle em sistemas do mundo real, como na gestão de energia de edifícios, no controle de processos industriais ou na calibração de sistemas autônomos, onde o objetivo é maximizar uma recompensa (eficiência, produção) ao longo do tempo.
