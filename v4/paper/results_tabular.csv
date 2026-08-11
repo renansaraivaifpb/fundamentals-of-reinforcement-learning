@@ -1,0 +1,4 @@
+seed,conf_larga_pct,conf_estreita_pct,desvio_ideal,energia_kwh,cobertura_estados,intra_tile_treino_pct
+0,31.5,19.17,3.22,12.9,76.31,59.44
+1,38.67,22.33,4.19,10.0,76.15,59.41
+2,56.0,40.5,2.27,12.69,76.67,59.6

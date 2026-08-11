@@ -1,0 +1,28 @@
+{
+  "completa": {},
+  "sem_gradiente": {
+    "comfort_gradient": 0.0
+  },
+  "sem_penal_troca": {
+    "action_change_penalty": 0.0
+  },
+  "sem_short_cycling": {
+    "short_cycle_penalty": 0.0
+  },
+  "sem_penal_frio": {
+    "cold_action_penalty": 0.0
+  },
+  "quadratica_pura": {
+    "comfort_type": "quadratic"
+  },
+  "degraus_legado": {
+    "comfort_type": "step"
+  },
+  "convencional": {
+    "comfort_type": "quadratic",
+    "comfort_gradient": 0.0,
+    "action_change_penalty": 0.0,
+    "short_cycle_penalty": 0.0,
+    "cold_action_penalty": 0.0
+  }
+}

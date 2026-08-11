@@ -1,0 +1,42 @@
+==============================================================================
+DIAGNÓSTICO HNP (Zha et al. 2021) — antes de treinar
+==============================================================================
+  espaço discretizado: 4,800 estados (20×10×24)
+  largura do bin de temperatura: 1.00 °C
+  ΔT típico por passo (sala cheia): 0.0900 °C
+  passos para cruzar um bin: 11.1
+  -> TRANSIÇÕES INTRA-TILE: 79.9%
+     (fração de transições em que o estado discreto não muda; alta => valor não se propaga)
+
+  treinando tabular (semente 0, 550,000 passos)...
+    100,000 passos | eps=0.655 | cobertura=70.7% | intra-tile=62.5%
+    200,000 passos | eps=0.309 | cobertura=73.6% | intra-tile=61.4%
+    300,000 passos | eps=0.050 | cobertura=75.0% | intra-tile=60.5%
+    400,000 passos | eps=0.050 | cobertura=75.6% | intra-tile=59.9%
+    500,000 passos | eps=0.050 | cobertura=76.2% | intra-tile=59.6%
+    -> conf 31.5% | |T-24| 3.22 | cobertura 76.3%
+
+  treinando tabular (semente 1, 550,000 passos)...
+    100,000 passos | eps=0.655 | cobertura=70.5% | intra-tile=62.3%
+    200,000 passos | eps=0.309 | cobertura=73.9% | intra-tile=61.4%
+    300,000 passos | eps=0.050 | cobertura=74.9% | intra-tile=60.5%
+    400,000 passos | eps=0.050 | cobertura=75.5% | intra-tile=59.9%
+    500,000 passos | eps=0.050 | cobertura=76.1% | intra-tile=59.6%
+    -> conf 38.7% | |T-24| 4.19 | cobertura 76.1%
+
+  treinando tabular (semente 2, 550,000 passos)...
+    100,000 passos | eps=0.655 | cobertura=70.5% | intra-tile=62.2%
+    200,000 passos | eps=0.309 | cobertura=73.8% | intra-tile=61.6%
+    300,000 passos | eps=0.050 | cobertura=75.5% | intra-tile=60.7%
+    400,000 passos | eps=0.050 | cobertura=76.4% | intra-tile=60.2%
+    500,000 passos | eps=0.050 | cobertura=76.6% | intra-tile=59.8%
+    -> conf 56.0% | |T-24| 2.27 | cobertura 76.7%
+
+ seed  conf_larga_pct  conf_estreita_pct  desvio_ideal  energia_kwh  cobertura_estados  intra_tile_treino_pct
+    0           31.50              19.17          3.22        12.90              76.31                  59.44
+    1           38.67              22.33          4.19        10.00              76.15                  59.41
+    2           56.00              40.50          2.27        12.69              76.67                  59.60
+
+resultados em results_tabular.csv
+
+Compare com DQN (86,5 % conf, |T-24| 0,89) e PI (86,5 %, 0,72).
