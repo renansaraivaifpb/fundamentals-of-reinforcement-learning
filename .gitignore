@@ -1,0 +1,44 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+
+# --- Artefatos de experimento (NÃO versionar em Git) ---
+# Estes diretórios já contêm arquivos rastreados historicamente e, por ora, são o
+# único backup dos modelos treinados — por isso NÃO foram desrastreados.
+# Este ignore vale para execuções FUTURAS. A solução definitiva é DVC ou
+# MLflow artifacts: Git não é feito para binários nem para JSONs de 120k linhas.
+sb3_logs*/
+rl_analysis_logs/
+results_*/
+mlruns/
+
+# --- Saídas de análise ---
+# `plots_analysis_*/` deliberadamente NÃO está aqui: os dashboards são figuras
+# candidatas ao paper e você já versiona um deles de propósito.
+*.png.tmp
+
+# --- Sistema operacional ---
+.DS_Store
+Thumbs.db
+
+# --- Artefatos da reprodução v4/paper ---
+# TensorBoard: regenerável a partir do treino.
+logs_paper/
+logs_ablation/
+v4/paper/logs_*/
+
+# Configuração local do editor.
+.vscode/
+
+# PDFs de terceiros (Elsevier/Springer/Nature): material protegido por direito
+# autoral, não redistribuível. Referenciar por DOI no lugar.
+papers_sugeridos/
+
+# Exceção: os CSVs da ablação e do tabular são RESULTADOS experimentais
+# (não artefatos regeneráveis) — o padrão `results_*/` acima os pegaria.
+!v4/paper/results_ablation/
+!v4/paper/results_ablation/**

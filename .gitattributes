@@ -1,0 +1,16 @@
+# Normalização de fim de linha.
+# Motivo: um editor Windows/WSL converteu ~100 arquivos para CRLF, gerando um diff
+# de 1M de linhas que escondia as 3 mudanças reais do repositório.
+# `text=auto` deixa o Git detectar arquivos de texto; `eol=lf` força LF no working tree
+# em qualquer SO, mantendo o repositório canônico independente da máquina.
+* text=auto eol=lf
+
+# Artefatos binários: nunca normalizar (corromperia o conteúdo).
+*.png   binary
+*.pdf   binary
+*.zip   binary
+*.pkl   binary
+*.pyc   binary
+
+# Notebooks são JSON: normalizam como texto (LF), mas sem diff legível no terminal.
+*.ipynb text eol=lf -diff
