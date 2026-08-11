@@ -1,0 +1,55 @@
+{
+  "algo": "DQN",
+  "profile": "Agressivo",
+  "seed": 0,
+  "timesteps": 550000,
+  "action_repeat": 2,
+  "agent_params": {
+    "learning_rate": 5e-05,
+    "batch_size": 64
+  },
+  "env_params": {
+    "max_occupancy": 45,
+    "heat_gain_per_person": 0.3,
+    "thermal_mass": 15.0,
+    "heat_transfer_coeff": 0.5,
+    "temperature_noise_std": 0.01,
+    "dt": 0.1,
+    "episode_steps": 240,
+    "temp_min_clip": 10.0,
+    "temp_max_clip": 40.0,
+    "season": "summer",
+    "outdoor_base_temp": 28.0,
+    "outdoor_amplitude": 8.0,
+    "outdoor_peak_hour": 14.0,
+    "ideal_temp": 24.0,
+    "temp_comfort_min": 22.0,
+    "temp_comfort_max": 26.0,
+    "temp_narrow_min": 23.0,
+    "temp_narrow_max": 25.0,
+    "occupied_hour_start": 7,
+    "occupied_hour_end": 22,
+    "comfort_bonus": 10.0,
+    "comfort_gradient": 7.0,
+    "comfort_sensitivity": 0.6,
+    "energy_penalty_factor": 0.03,
+    "action_change_penalty": -0.5,
+    "cold_action_penalty": -2.0,
+    "short_cycle_penalty": -5.0,
+    "min_dwell_minutes": 36.0,
+    "energy_tariff_brl_per_kwh": 0.8,
+    "peak_hours": [
+      18,
+      21
+    ],
+    "peak_tariff_multiplier": 1.6,
+    "peak_penalty_multiplier": 1.6,
+    "shield_force_cool_above": 28.0,
+    "shield_force_off_below": 20.0
+  },
+  "reward_profile": {
+    "comfort_gradient": 7.0,
+    "energy_penalty_factor": 0.03,
+    "action_change_penalty": -0.5
+  }
+}
