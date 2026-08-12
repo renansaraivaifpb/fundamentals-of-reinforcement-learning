@@ -42,3 +42,11 @@ papers_sugeridos/
 # (não artefatos regeneráveis) — o padrão `results_*/` acima os pegaria.
 !v4/paper/results_ablation/
 !v4/paper/results_ablation/**
+
+# Modelos SAC/TD3 sao ~6 MB cada (ator + 2 criticos + targets). Os canonicos
+# (models_lab3) sao versionados; os intermediarios superados ficam so em disco.
+# Sao regeneraveis: `python train.py --lab2 --seeds 0 1 2` reproduz exatamente,
+# porque model_io.py garante que a config de treino esta no metadado.
+v4/paper/models_lab2/
+v4/paper/logs_lab*/
+v4/paper/logs_obs_ablacao/

@@ -20,10 +20,11 @@ import time
 from dataclasses import asdict
 from typing import Dict, Optional
 
-from stable_baselines3 import A2C, DQN, PPO, SAC
+from stable_baselines3 import A2C, DQN, DDPG, PPO, SAC, TD3
 from stable_baselines3.common.monitor import Monitor
 
-from config import REWARD_PROFILES, config_for_profile
+from config import (LAB_PROFILES, REWARD_PROFILES, config_for_lab,
+                    config_for_lab2, config_for_profile)
 from env import ClassroomACEnv
 from wrappers import ActionRepeatWrapper, ContinuousActionWrapper, MinDwellWrapper
 
@@ -36,18 +37,49 @@ ACTION_REPEAT = 2
 # valioso comparar diferentes abordagens (PPO, por exemplo)."
 # Espaço de ação: DQN/PPO/A2C são discretos, SAC é contínuo.
 ALGOS = {
+    # Discretos
     "DQN": (DQN, DQN_HYPERPARAMS, False),
     "PPO": (PPO, {"learning_rate": 3e-4, "n_steps": 2048, "batch_size": 64}, False),
     "A2C": (A2C, {"learning_rate": 7e-4, "n_steps": 5}, False),
-    "SAC": (SAC, {}, True),
+    # Contínuos
+    "SAC": (SAC, {"learning_rate": 3e-4, "batch_size": 256}, True),
+    # TD3 é a adição para controle de PRECISÃO. Três motivos, todos medidos
+    # nesta base: (i) política DETERMINÍSTICA — sem ruído estocástico, melhor
+    # para rastreamento fino de setpoint; (ii) critics gêmeos contra
+    # superestimação, relevante porque a cauda linear da Huber é grande;
+    # (iii) suavização do alvo, que ataca a variância entre sementes observada
+    # no DQN (97,8% / 96,4% / 5,3% na mesma configuração).
+    "TD3": (TD3, {"learning_rate": 3e-4, "batch_size": 256,
+                  "policy_delay": 2, "target_policy_noise": 0.2}, True),
+    "DDPG": (DDPG, {"learning_rate": 3e-4, "batch_size": 256}, True),
 }
+
+# TQC (sb3-contrib) é estado da arte em controle contínuo e entra automaticamente
+# se o pacote estiver instalado: `pip install sb3-contrib`.
+try:
+    from sb3_contrib import TQC  # noqa: F401
+    ALGOS["TQC"] = (TQC, {"learning_rate": 3e-4, "batch_size": 256}, True)
+except ImportError:
+    pass
 
 
 def make_env(profile: str, continuous: bool = False, seed: int | None = None,
-             hard_dwell: bool = False):
-    cfg = config_for_profile(profile)
+             hard_dwell: bool = False, lab: bool = False, lab2: bool = False,
+             legacy_obs: bool = False):
+    if lab2:
+        # Ablação da observação: `legacy_obs` desliga as features PID (erro
+        # escalado e integral), mantendo todo o resto igual. É a única forma de
+        # isolar o efeito da OBSERVAÇÃO do efeito de tudo mais.
+        # A ação contínua bidirecional é NATIVA do ambiente (config.continuous_action);
+        # o ContinuousActionWrapper existe apenas para o modo de reprodução do
+        # manuscrito, onde o ambiente base é discreto e só resfria.
+        extra = ({"observe_scaled_error": False, "observe_integral": False}
+                 if legacy_obs else {})
+        cfg = config_for_lab2(profile, continuous_action=continuous, **extra)
+    else:
+        cfg = config_for_lab(profile) if lab else config_for_profile(profile)
     env = ClassroomACEnv(config=cfg)
-    if continuous:
+    if continuous and not lab2:
         env = ContinuousActionWrapper(env)
     if hard_dwell:
         # Restrição dura de permanência mínima. Medições mostram que a
@@ -134,7 +166,9 @@ def save_metadata(path: str, profile: str, seed: int, timesteps: int,
                 for s in cfg.physics.load_fraction
             },
         },
-        "reward_profile": REWARD_PROFILES[profile],
+        "reward_profile": (LAB_PROFILES if profile in LAB_PROFILES
+                           else REWARD_PROFILES).get(profile, {}),
+        "tariff": cfg.tariff.name,
     }
     if extra:
         payload.update(extra)
@@ -144,18 +178,21 @@ def save_metadata(path: str, profile: str, seed: int, timesteps: int,
 
 def train_one(profile: str, seed: int, timesteps: int, models_dir: str,
               logs_dir: str, algo: str = "DQN", expert_init: bool = False,
-              hard_dwell: bool = False) -> str:
+              hard_dwell: bool = False, lab: bool = False,
+              lab2: bool = False, legacy_obs: bool = False) -> str:
     if algo not in ALGOS:
         raise KeyError(f"algoritmo '{algo}' desconhecido. Use: {list(ALGOS)}")
     cls, hyper, continuous = ALGOS[algo]
 
-    suffix = ("_expert" if expert_init else "") + ("_dwell" if hard_dwell else "")
+    suffix = (("_expert" if expert_init else "") + ("_dwell" if hard_dwell else "")
+              + ("_lab2" if lab2 else "") + ("_obs7" if legacy_obs else "_obs9" if lab2 else ""))
     tag = f"{algo}_{profile}_seed{seed}{suffix}"
     print(f"\n{'='*70}\n{tag}  ({timesteps:,} passos)\n{'='*70}")
     t0 = time.time()
 
     env, cfg = make_env(profile, continuous=continuous, seed=seed,
-                        hard_dwell=hard_dwell)
+                        hard_dwell=hard_dwell, lab=lab, lab2=lab2,
+                        legacy_obs=legacy_obs)
     model = cls(
         policy="MlpPolicy", env=env, verbose=0, seed=seed,
         tensorboard_log=os.path.join(logs_dir, tag), **hyper,
@@ -202,6 +239,12 @@ def main() -> None:
                    help="warm start a partir do PI (Xu et al. 2025)")
     p.add_argument("--hard-dwell", action="store_true",
                    help="permanência mínima como restrição dura")
+    p.add_argument("--lab", action="store_true",
+                   help="perfis de LABORATÓRIO de precisão com tarifa real da Enel")
+    p.add_argument("--legacy-obs", action="store_true",
+                   help="ablação: desliga erro escalado e integral na observação")
+    p.add_argument("--lab2", action="store_true",
+                   help="laboratório bidirecional: aquecimento + dT/dt + horizonte tarifário")
     p.add_argument("--models_dir", type=str, default="models_paper")
     p.add_argument("--logs_dir", type=str, default="logs_paper")
     args = p.parse_args()
@@ -222,13 +265,16 @@ def main() -> None:
         for algo in algos:
             # SAC é um único agente (não há perfis no caso contínuo); o paper
             # adota o Equilibrado como recompensa de referência.
-            profiles = ["Equilibrado"] if algo == "SAC" else args.profiles
+            continuo = ALGOS[algo][2]
+            profiles = ((["Lab_Equilibrado"] if (args.lab or args.lab2) else ["Equilibrado"])
+                        if (continuo and not args.lab2) else args.profiles)
             for profile in profiles:
                 train_one(
                     profile, seed, args.timesteps, args.models_dir, args.logs_dir,
                     algo=algo,
                     expert_init=args.expert_init and algo == "DQN",
-                    hard_dwell=args.hard_dwell,
+                    hard_dwell=args.hard_dwell, lab=args.lab, lab2=args.lab2,
+                    legacy_obs=args.legacy_obs,
                 )
 
     print("\nTreinamento concluído.")

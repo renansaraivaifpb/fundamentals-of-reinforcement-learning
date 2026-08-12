@@ -103,7 +103,99 @@ def episode_metrics(df: pd.DataFrame, config: ClassroomConfig) -> Dict[str, floa
         config.temp_comfort_min - temp, 0.0
     )
 
+    # --- Métricas de LABORATÓRIO de precisão ---
+    # Para controle minucioso a pergunta não é "ficou na faixa de 4 °C" e sim
+    # "quanto tempo ficou dentro de ±tolerance do setpoint" e "qual a dispersão".
+    # O desvio-padrão é o que um laboratório de fato especifica (estabilidade),
+    # e não aparece em nenhuma métrica do manuscrito.
+    tol = config.lab_tolerance
+    in_tolerance = (temp - config.ideal_temp).abs() <= tol
+    peak = df[df["posto"] == "ponta"] if "posto" in df else df.iloc[0:0]
+
+    # --- Métricas de ERRO da teoria de controle ---
+    # O projeto reporta apenas médias e frações de tempo. Um engenheiro de
+    # controle especifica outra coisa: IAE/ISE (erro acumulado), sobressinal,
+    # tempo de acomodação e erro de regime. Nenhuma delas existia aqui, e é
+    # justamente onde o RL perde do PI — a média esconde transiente, como ficou
+    # claro quando o subresfriamento de 20 °C do PI com windup passou batido por
+    # métricas agregadas boas (86,5 % de conforto, |T-24| de 0,72).
+    erro = temp - config.ideal_temp
+    dt_h = config.dt
+    passos = float(df["inner_steps"].sum()) if "inner_steps" in df else float(len(df))
+    horas_tot = passos * dt_h
+
+    iae = float(erro.abs().sum() * dt_h)          # integral do erro absoluto (°C·h)
+    ise = float((erro ** 2).sum() * dt_h)         # integral do erro quadrático
+    itae = float((erro.abs() * np.arange(len(erro)) * dt_h).sum() * dt_h)  # pondera cauda
+
+    # Sobressinal: maior excursão ALÉM do setpoint no sentido da correção. Num
+    # pulldown (partida quente) é o quanto passou para baixo do alvo.
+    inicio = float(df["temperature"].iloc[0])
+    if inicio > config.ideal_temp:
+        overshoot = float(max(config.ideal_temp - temp.min(), 0.0))
+    else:
+        overshoot = float(max(temp.max() - config.ideal_temp, 0.0))
+
+    # Tempo de acomodação: primeira vez que o erro entra na tolerância e
+    # PERMANECE (não apenas cruza). Sem o "permanece", um cruzamento
+    # transitório contaria como acomodado.
+    tol = config.lab_tolerance
+    dentro = (erro.abs() <= tol).to_numpy()
+    settling = float("nan")
+    for k in range(len(dentro)):
+        if dentro[k:].all():
+            settling = k * dt_h
+            break
+
+    # Erro de regime: média do erro no último quarto do episódio, COM sinal.
+    # Viés persistente é o que uma política sem integral não consegue eliminar.
+    cauda = erro.iloc[int(len(erro) * 0.75):]
+    erro_regime = float(cauda.mean()) if len(cauda) else float("nan")
+
+    # --- SEGMENTAÇÃO transitório / regime ---
+    # Sem isto as métricas agregadas medem a CONDIÇÃO INICIAL, não o controle:
+    # 15 sintonias distintas do PI davam exatamente 90,1 % de tolerância porque o
+    # número era dominado pelo transiente de partida (17 °C ou 30 °C até a faixa),
+    # não pela qualidade de regime. Depois de acomodar, PI e todos os agentes
+    # ficam em 100 % — o que só aparece quando se separa.
+    k = int(round(settling / dt_h)) if settling == settling else len(temp)
+    k = min(max(k, 0), len(temp))
+    tem_regime = (len(temp) - k) >= 10        # exige cauda mínima para ser métrica
+
+    if tem_regime:
+        t_ss = temp.iloc[k:]
+        e_ss = erro.iloc[k:]
+        ss = {
+            "in_tolerance_ss_pct": float((e_ss.abs() <= tol).mean() * 100.0),
+            "temp_std_ss": float(t_ss.std()),
+            "abs_dev_ss": float(e_ss.abs().mean()),
+            "max_abs_dev_ss": float(e_ss.abs().max()),
+        }
+    else:
+        ss = {"in_tolerance_ss_pct": float("nan"), "temp_std_ss": float("nan"),
+              "abs_dev_ss": float("nan"), "max_abs_dev_ss": float("nan")}
+
+    # Transitório: só até acomodar. IAE aqui é o custo da partida.
+    iae_transient = float(erro.iloc[:k].abs().sum() * dt_h) if k > 0 else 0.0
+
     return {
+        # --- transitório ---
+        "iae_transient": iae_transient,
+        # --- regime permanente (depois de acomodar) ---
+        **ss,
+        # --- episódio inteiro ---
+        "iae_c_h": iae,
+        "ise": ise,
+        "itae": itae,
+        "overshoot_c": overshoot,
+        "settling_h": settling,
+        "erro_regime_c": erro_regime,
+        "in_tolerance_pct": float(in_tolerance.mean() * 100.0),
+        "temp_std": float(temp.std()),
+        "max_abs_dev": float((temp - config.ideal_temp).abs().max()),
+        "p95_abs_dev": float((temp - config.ideal_temp).abs().quantile(0.95)),
+        "peak_cost_brl": float(peak["cost_brl"].sum()) if len(peak) else 0.0,
+        "peak_energy_kwh": float(peak["energy_kwh"].sum()) if len(peak) else 0.0,
         "comfort_wide_pct": float(in_wide.mean() * 100.0),
         "comfort_narrow_pct": float(in_narrow.mean() * 100.0),
         "abs_dev_from_ideal": float((temp - config.ideal_temp).abs().mean()),
@@ -171,6 +263,22 @@ def evaluate_agent(
         "comfort_narrow_pct": basis["comfort_narrow_pct"].mean(),
         "abs_dev_from_ideal": basis["abs_dev_from_ideal"].mean(),
         "overheat_pct": basis["overheat_pct"].mean(),
+        "iae_transient": basis["iae_transient"].mean(),
+        "in_tolerance_ss_pct": basis["in_tolerance_ss_pct"].mean(),
+        "temp_std_ss": basis["temp_std_ss"].mean(),
+        "abs_dev_ss": basis["abs_dev_ss"].mean(),
+        "max_abs_dev_ss": basis["max_abs_dev_ss"].max(),
+        "iae_c_h": basis["iae_c_h"].mean(),
+        "ise": basis["ise"].mean(),
+        "overshoot_c": basis["overshoot_c"].max(),
+        "settling_h": basis["settling_h"].mean(),
+        "erro_regime_c": basis["erro_regime_c"].mean(),
+        "in_tolerance_pct": basis["in_tolerance_pct"].mean(),
+        "temp_std": basis["temp_std"].mean(),
+        "max_abs_dev": basis["max_abs_dev"].max(),
+        "p95_abs_dev": basis["p95_abs_dev"].mean(),
+        "peak_cost_brl": df_scen["peak_cost_brl"].mean(),
+        "peak_energy_kwh": df_scen["peak_energy_kwh"].mean(),
         "violation_rate_pct": basis["violation_rate_pct"].mean(),
         "violation_degree_hours": basis["violation_degree_hours"].mean(),
         "shield_interventions": df_scen["shield_interventions"].mean(),

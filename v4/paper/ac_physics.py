@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Dict
+from typing import Dict, List
 
 # 1 BTU/h = 0,000293071 kW
 BTU_PER_HOUR_TO_KW = 0.000293071
@@ -64,6 +64,19 @@ class ACPhysicsModel:
     # Fixada em 40 para reproduzir a linha "Potência de resfriamento (u)".
     cooling_units_at_full_load: float = 40.0
 
+    # --- Aquecimento (equipamento reversível) ---
+    # Um AC que apenas resfria não consegue manter tolerância estreita à noite:
+    # com a sala vazia e externa a 21 °C a temperatura deriva ~0,5 °C abaixo do
+    # setpoint, e 18 % da madrugada fica fora de ±0,5 °C — inalcançável por
+    # QUALQUER controlador. Aquecimento não é melhoria de controle, é requisito
+    # físico para rastreamento bidirecional.
+    heating_enabled: bool = False
+    # Split reversível: capacidade de aquecimento próxima da de refrigeração.
+    heating_capacity_ratio: float = 1.0
+    # COP de aquecimento é MAIOR que o de refrigeração: a bomba de calor entrega
+    # trabalho + calor absorvido do ambiente externo.
+    heating_cop: float = 4.0
+
     @property
     def capacity_kw_thermal(self) -> float:
         """Capacidade de refrigeração nominal em kW térmicos."""
@@ -84,7 +97,53 @@ class ACPhysicsModel:
         thermal_kw = self.load_fraction[state] * self.capacity_kw_thermal
         return thermal_kw / self.cop[state]
 
-    # --- Interface contínua, usada pelo controlador SAC (Seção 4.5) ---
+    # --- Aquecimento -----------------------------------------------------
+
+    @property
+    def heating_units_at_full_load(self) -> float:
+        return self.cooling_units_at_full_load * self.heating_capacity_ratio
+
+    # --- Interface contínua, usada pelos controladores contínuos ---
+    #
+    # CONVENÇÃO DE SINAL: load > 0 resfria, load < 0 aquece, 0 desliga.
+    # `thermal_units_signed` devolve o efeito no balanço térmico já com sinal,
+    # para entrar direto em H_net = H_ganho - efeito.
+
+    def thermal_units_signed(self, load: float) -> float:
+        """Efeito térmico com sinal: positivo remove calor, negativo adiciona."""
+        load = max(-1.0, min(1.0, load))
+        if load >= 0.0:
+            return self.cooling_units_at_full_load * load
+        if not self.heating_enabled:
+            return 0.0
+        return self.heating_units_at_full_load * load   # negativo => aquece
+
+    def electrical_kw_signed(self, load: float) -> float:
+        """Potência elétrica (sempre positiva) para carga com sinal."""
+        load = max(-1.0, min(1.0, load))
+        if load > 0.0:
+            return self.electrical_kw_continuous(load)
+        if load < 0.0 and self.heating_enabled:
+            thermal_kw = abs(load) * self.capacity_kw_thermal * self.heating_capacity_ratio
+            return thermal_kw / self.heating_cop
+        return 0.0
+
+    def discrete_levels(self) -> List[float]:
+        """
+        Cargas com sinal do espaço de ação discreto.
+
+        Sem aquecimento reproduz o paper: [OFF, LOW, MEDIUM, HIGH]. Com
+        aquecimento, espelha os mesmos degraus no lado do aquecimento — 7 ações,
+        simétricas, para que o agente discreto tenha a mesma autoridade nos dois
+        sentidos.
+        """
+        cool = [self.load_fraction[s] for s in ACState]
+        if not self.heating_enabled:
+            return cool
+        heat = [-f for f in cool if f > 0.0]
+        return sorted(heat) + cool
+
+    # --- Interface contínua original (apenas resfriamento) ---
 
     def cooling_units_continuous(self, load: float) -> float:
         """Resfriamento para uma fração de potência contínua a ∈ [0, 1]."""

@@ -154,6 +154,105 @@ class MinDwellWrapper(gym.Wrapper):
         return obs, reward, terminated, truncated, info
 
 
+class CompressorProtectionWrapper(gym.Wrapper):
+    """
+    Camada de proteção do compressor, imposta como RESTRIÇÃO DURA.
+
+    Endereça três modos de desgaste distintos, medidos em `compressor_health.py`:
+
+    1. `min_run_minutes` — tempo mínimo ligado antes de poder desligar. Partir e
+       desligar em poucos minutos não permite o retorno de óleo ao cárter. O DQN
+       discreto operava com mediana de 12 min.
+    2. `min_mode_minutes` — tempo mínimo num sentido antes de REVERTER o ciclo.
+       Inverter a válvula de 4 vias exige equalização de pressão; em unidade real
+       o compressor para durante a reversão. Este modo de desgaste só passou a
+       existir quando habilitei o aquecimento (6–14 reversões/dia medidas).
+    3. `max_ramp_per_min` — limite de rampa da carga, protegendo a eletrônica de
+       potência.
+
+    Por que restrição e não penalidade: já está medido nesta base que uma
+    penalidade de recompensa limitada a |rho|=5 é superada por um conforto de 14
+    em 71–83 % das comutações. Integridade de hardware é requisito, não item
+    negociável na função objetivo.
+    """
+
+    def __init__(self, env: gym.Env, min_run_minutes: float = 5.0,
+                 min_mode_minutes: float = 10.0,
+                 max_ramp_per_min: Optional[float] = 0.35,
+                 enabled: bool = True):
+        super().__init__(env)
+        self.enabled = enabled
+        base = env.unwrapped
+        self.minutes_per_step = base.config.dt * 60.0
+        self.min_run_steps = int(round(min_run_minutes / self.minutes_per_step))
+        self.min_mode_steps = int(round(min_mode_minutes / self.minutes_per_step))
+        self.max_ramp = max_ramp_per_min
+        self.blocked_off = 0
+        self.blocked_reversal = 0
+        self.clipped_ramp = 0
+
+    def reset(self, **kwargs):
+        self.blocked_off = 0
+        self.blocked_reversal = 0
+        self.clipped_ramp = 0
+        self._run_steps = 0
+        self._mode_steps = 10**6      # começa "estabilizado"
+        self._mode = 0
+        return self.env.reset(**kwargs)
+
+    def _sign(self, load: float) -> int:
+        return 0 if abs(load) < 1e-6 else (1 if load > 0 else -1)
+
+    def step(self, action):
+        base = self.env.unwrapped
+        cfg = base.config
+        continuo = cfg.continuous_action
+
+        if self.enabled:
+            atual = base.load
+            pedido = base._decode_action(action)
+
+            # (3) Limite de rampa.
+            if self.max_ramp is not None:
+                limite = self.max_ramp * self.minutes_per_step
+                if abs(pedido - atual) > limite:
+                    pedido = atual + np.sign(pedido - atual) * limite
+                    self.clipped_ramp += 1
+
+            s_atual, s_pedido = self._sign(atual), self._sign(pedido)
+
+            # (1) Tempo mínimo ligado antes de desligar.
+            if s_atual != 0 and s_pedido == 0 and self._run_steps < self.min_run_steps:
+                pedido = atual
+                self.blocked_off += 1
+                s_pedido = s_atual
+
+            # (2) Tempo mínimo no sentido antes de reverter.
+            if (s_atual != 0 and s_pedido != 0 and s_pedido != s_atual
+                    and self._mode_steps < self.min_mode_steps):
+                # Bloqueia a reversão levando a carga a zero em vez de inverter:
+                # desligar é benigno, reverter cedo não é.
+                pedido = 0.0
+                self.blocked_reversal += 1
+
+            action = np.array([pedido], dtype=np.float32) if continuo else \
+                int(np.argmin([abs(pedido - L) for L in base.levels]))
+
+        obs, reward, terminated, truncated, info = self.env.step(action)
+
+        # Contadores de estado após o passo.
+        s = self._sign(base.load)
+        self._run_steps = self._run_steps + 1 if s != 0 else 0
+        self._mode_steps = 0 if (s != 0 and s != self._mode) else self._mode_steps + 1
+        if s != 0:
+            self._mode = s
+
+        info.update({"blocked_off": self.blocked_off,
+                     "blocked_reversal": self.blocked_reversal,
+                     "clipped_ramp": self.clipped_ramp})
+        return obs, reward, terminated, truncated, info
+
+
 class DecisionLoggerWrapper(gym.Wrapper):
     """
     Registrador de decisões: trilha de auditoria com estado, ação, recompensa

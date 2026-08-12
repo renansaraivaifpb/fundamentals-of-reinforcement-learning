@@ -92,33 +92,58 @@ class PIController:
     ki: float = 0.08
     setpoint: Optional[float] = None
     discrete: bool = True
+    # Quando o equipamento tem aquecimento, o PI deve poder aquecer também.
+    # Comparar um PI unidirecional contra um agente bidirecional seria
+    # comparação viciada — o baseline precisa da MESMA autoridade de atuação.
+    bidirectional: Optional[bool] = None
 
     def __post_init__(self) -> None:
         self._integral = 0.0
         if self.setpoint is None:
             self.setpoint = self.config.ideal_temp
+        if self.bidirectional is None:
+            self.bidirectional = bool(getattr(self.config, "heating_enabled", False))
 
     def reset(self) -> None:
         self._integral = 0.0
 
     def _load(self, temp: float) -> float:
+        """
+        Anti-windup por *conditional integration* correto.
+
+        A regra é: congelar o integrador quando a saída está saturada E o erro
+        empurraria ainda mais para dentro da saturação; continuar integrando
+        quando o erro tende a tirar da saturação.
+
+        Isto importa muito no pulldown: partindo de 30 °C o erro fica em +6 °C
+        por dezenas de passos com a saída saturada em 1,0. Uma implementação que
+        siga acumulando nesse trecho chega ao setpoint com integrador enorme e
+        subresfria — medido em 20,1 °C, quase 2 °C abaixo do piso de conforto,
+        contra 23,0–23,9 °C dos agentes de RL. Era bug de implementação, não
+        limitação do PI.
+        """
+        lo = -1.0 if self.bidirectional else 0.0
         error = temp - float(self.setpoint)
-        candidate = self.kp * error + self.ki * (self._integral + error)
-        # Integra apenas se não saturar (anti-windup condicional).
-        if 0.0 < candidate < 1.0:
+
+        saida_bruta = self.kp * error + self.ki * self._integral
+        saturado_alto = saida_bruta >= 1.0
+        saturado_baixo = saida_bruta <= lo
+        empurra_mais = (saturado_alto and error > 0) or (saturado_baixo and error < 0)
+
+        if not empurra_mais:
             self._integral += error
-        elif candidate <= 0.0 and self._integral > 0.0:
-            self._integral = max(0.0, self._integral + error)
-        return float(np.clip(self.kp * error + self.ki * self._integral, 0.0, 1.0))
+
+        return float(np.clip(self.kp * error + self.ki * self._integral, lo, 1.0))
 
     def predict(self, obs, deterministic: bool = True, info: Optional[Dict] = None):
         load = self._load(_temp_from(obs, info))
         if not self.discrete:
             return np.array([load], dtype=np.float32), None
 
-        fractions = [self.config.physics.load_fraction[s] for s in ACState]
-        nearest = int(np.argmin([abs(load - f) for f in fractions]))
-        return nearest, None
+        # Mapeia para o nível discreto mais próximo do MESMO espaço de ação do
+        # agente, incluindo os níveis de aquecimento quando existirem.
+        levels = self.config.physics.discrete_levels()
+        return int(np.argmin([abs(load - f) for f in levels])), None
 
 
 class AlwaysOffAgent:
