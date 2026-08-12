@@ -1,0 +1,48 @@
+9 treinos de 250,000 passos. algoritmos=['TD3']
+
+======================================================================
+TD3_Lab_Precisao_seed0_lab2_obs9  (250,000 passos)
+======================================================================
+-> concluído em 23.0 min | models_lab3/TD3_Lab_Precisao_seed0_lab2_obs9.zip
+
+======================================================================
+TD3_Lab_Equilibrado_seed0_lab2_obs9  (250,000 passos)
+======================================================================
+-> concluído em 23.1 min | models_lab3/TD3_Lab_Equilibrado_seed0_lab2_obs9.zip
+
+======================================================================
+TD3_Lab_Economico_seed0_lab2_obs9  (250,000 passos)
+======================================================================
+-> concluído em 22.6 min | models_lab3/TD3_Lab_Economico_seed0_lab2_obs9.zip
+
+======================================================================
+TD3_Lab_Precisao_seed1_lab2_obs9  (250,000 passos)
+======================================================================
+-> concluído em 22.1 min | models_lab3/TD3_Lab_Precisao_seed1_lab2_obs9.zip
+
+======================================================================
+TD3_Lab_Equilibrado_seed1_lab2_obs9  (250,000 passos)
+======================================================================
+-> concluído em 23.1 min | models_lab3/TD3_Lab_Equilibrado_seed1_lab2_obs9.zip
+
+======================================================================
+TD3_Lab_Economico_seed1_lab2_obs9  (250,000 passos)
+======================================================================
+-> concluído em 22.9 min | models_lab3/TD3_Lab_Economico_seed1_lab2_obs9.zip
+
+======================================================================
+TD3_Lab_Precisao_seed2_lab2_obs9  (250,000 passos)
+======================================================================
+-> concluído em 24.3 min | models_lab3/TD3_Lab_Precisao_seed2_lab2_obs9.zip
+
+======================================================================
+TD3_Lab_Equilibrado_seed2_lab2_obs9  (250,000 passos)
+======================================================================
+-> concluído em 24.4 min | models_lab3/TD3_Lab_Equilibrado_seed2_lab2_obs9.zip
+
+======================================================================
+TD3_Lab_Economico_seed2_lab2_obs9  (250,000 passos)
+======================================================================
+-> concluído em 24.2 min | models_lab3/TD3_Lab_Economico_seed2_lab2_obs9.zip
+
+Treinamento concluído.
