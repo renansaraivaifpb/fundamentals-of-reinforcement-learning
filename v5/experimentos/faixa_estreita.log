@@ -1,0 +1,26 @@
+
+==================================================================
+Tolerância ±2.0 °C  (faixa [22.0, 26.0])
+==================================================================
+  PI sintonizado Kp=1.8 Ki=0.4: 86.5% na tolerância
+  DQN seed 0 (2.7 min): 86.5% na tolerância
+  DQN seed 1 (2.8 min): 86.5% na tolerância
+  DQN seed 2 (2.7 min): 86.5% na tolerância
+
+==================================================================
+Tolerância ±1.0 °C  (faixa [23.0, 25.0])
+==================================================================
+  PI sintonizado Kp=1.8 Ki=0.4: 83.8% na tolerância
+  DQN seed 0 (2.7 min): 83.8% na tolerância
+  DQN seed 1 (2.8 min): 83.8% na tolerância
+  DQN seed 2 (2.8 min): 74.8% na tolerância
+
+==================================================================
+Tolerância ±0.5 °C  (faixa [23.5, 24.5])
+==================================================================
+  PI sintonizado Kp=1.3 Ki=0.0: 79.8% na tolerância
+  DQN seed 0 (2.8 min): 69.2% na tolerância
+  DQN seed 1 (2.6 min): 69.2% na tolerância
+  DQN seed 2 (2.8 min): 76.2% na tolerância
+
+gravado: /home/renan/Downloads/air_conditioning_classroom/v5/experimentos/resultados_faixa_estreita.csv

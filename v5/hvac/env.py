@@ -17,8 +17,9 @@ import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
 
-from ac_physics import ACState
-from config import ClassroomConfig
+from .physics import ACState
+from . import features
+from .config import ClassroomConfig
 
 
 class ComfortLevel(IntEnum):
@@ -73,29 +74,19 @@ class ClassroomACEnv(gym.Env):
         else:
             self.action_space = spaces.Discrete(len(self.levels))
 
-        # Observação base (eq. 3) + features opcionais. O tamanho é montado aqui
-        # para que o Box declarado corresponda sempre ao que _get_obs emite —
-        # foi a divergência entre os dois que gerou o bug de o_norm=1,33 no v4.
-        low = [0.0, -1.0, -1.0]
-        high = [1.0, 1.0, 1.0]
-        if cfg.observe_occupancy:
-            low.insert(1, 0.0); high.insert(1, 1.0)
-        if cfg.observe_scaled_error:
-            low += [-1.0]; high += [1.0]          # erro escalado pela tolerância
-        if cfg.observe_integral:
-            low += [-1.0]; high += [1.0]          # erro acumulado (com fuga)
-        if cfg.observe_derivative:
-            low += [-1.0]; high += [1.0]          # dT/dt normalizado
-        if cfg.observe_time_to_peak:
-            low += [0.0, 0.0]; high += [1.0, 1.0] # tempo até ponta, tarifa
-        if cfg.demand_limit_enabled and cfg.observe_demand_headroom:
-            low += [0.0]; high += [1.0]           # folga até a demanda contratada
-        self.observation_space = spaces.Box(
-            low=np.array(low, dtype=np.float32),
-            high=np.array(high, dtype=np.float32),
-            dtype=np.float32,
-        )
+        # O espaço de observação vem da DECLARAÇÃO ÚNICA em features.py, e não
+        # de uma lista montada aqui em paralelo à de `_get_obs`. Era a
+        # divergência entre essas duas listas que gerava o bug de o_norm=1,33 na
+        # v4 — e, pior, que permitia trocar a ordem de dois canais sem que nada
+        # acusasse o erro.
+        low, high = features.limites(cfg)
+        self.observation_space = spaces.Box(low=low, high=high, dtype=np.float32)
         self._init_state()
+
+    # Contrato da observação, gravado no metadado e conferido no carregamento.
+    @property
+    def obs_schema(self) -> Dict:
+        return features.schema(self.config)
 
     # ------------------------------------------------------------------ setup
 
@@ -115,7 +106,7 @@ class ClassroomACEnv(gym.Env):
         self.occupancy_episode = None
         self.demand = None
         if cfg.demand_limit_enabled:
-            from demand import DemandContract, DemandTracker
+            from .demand import DemandContract, DemandTracker
             self.demand = DemandTracker(
                 DemandContract(contracted_kw=cfg.demand_contracted_kw), cfg.dt)
         self.sensor_buffer: List[float] = []
@@ -160,48 +151,18 @@ class ClassroomACEnv(gym.Env):
 
     def _get_obs(self) -> np.ndarray:
         """
-        eq. 3 — t_norm = clip((T−15)/20, 0, 1); o_norm = N/N_max — mais as
-        features opcionais de derivada e de horizonte tarifário.
+        Observação do passo, montada pela declaração única de `features.py`.
+
+        A leitura do sensor acontece AQUI e não dentro dos extratores: ela tem
+        efeito colateral (avança a fila de atraso de transporte), e um extrator
+        chamado uma vez por canal a executaria N vezes por passo.
         """
-        cfg = self.config
-        t_medida = self._read_sensor()
-        t_norm = np.clip((t_medida - 15.0) / 20.0, 0.0, 1.0)
-        o_norm = np.clip(self.occupancy / cfg.max_occupancy, 0.0, 1.0)
-        angle = 2.0 * np.pi * self.hour_float / 24.0
-        obs = [t_norm] + ([o_norm] if cfg.observe_occupancy else []) \
-              + [np.sin(angle), np.cos(angle)]
+        self._read_sensor()
+        return features.vetor(self)
 
-        if cfg.observe_scaled_error:
-            # A escala é 4x a tolerância: ±tol -> ±0,25, saturando fora de ±4·tol.
-            # O canal t_norm acima é mantido de propósito, grosseiro, para que o
-            # agente ainda saiba que está a 32 C e não a 26 C quando este saturar.
-            escala = max(cfg.error_scale_tolerances * cfg.lab_tolerance, 1e-9)
-            obs.append(float(np.clip((t_medida - cfg.ideal_temp) / escala,
-                                     -1.0, 1.0)))
-
-        if cfg.observe_integral:
-            lim = max(cfg.integral_clip_degree_hours, 1e-9)
-            obs.append(float(np.clip(self.integral_error / lim, -1.0, 1.0)))
-
-        if cfg.observe_derivative:
-            # Normalizado pela maior variação possível por passo (HIGH a plena
-            # carga), para ficar em [-1,1] sem depender da escala da física.
-            max_d = (cfg.physics.cooling_units_at_full_load / cfg.thermal_mass) * cfg.dt
-            d = (t_medida - self.prev_temp) / max(max_d, 1e-9)
-            obs.append(float(np.clip(d, -1.0, 1.0)))
-
-        if cfg.observe_time_to_peak:
-            look = max(cfg.peak_lookahead_hours * 60.0, 1e-9)
-            obs.append(float(np.clip(self._minutes_to_peak() / look, 0.0, 1.0)))
-            rates = [cfg.tariff.off_peak_brl_kwh, cfg.tariff.peak_brl_kwh]
-            if cfg.tariff.intermediate_brl_kwh is not None:
-                rates.append(cfg.tariff.intermediate_brl_kwh)
-            obs.append(float(np.clip(cfg.tariff_rate(self.hour_float) / max(rates), 0.0, 1.0)))
-
-        if cfg.demand_limit_enabled and cfg.observe_demand_headroom:
-            obs.append(self.demand.headroom() if self.demand else 1.0)
-
-        return np.array(obs, dtype=np.float32)
+    # Ponte para os extratores de features.py, que recebem o ambiente.
+    def minutes_to_peak(self) -> float:
+        return self._minutes_to_peak()
 
     def _nearest_ac_state(self, load: float) -> ACState:
         """Nível de refrigeração mais próximo (OFF quando aquecendo)."""
@@ -258,7 +219,7 @@ class ClassroomACEnv(gym.Env):
         if cfg.train_occupancy_mode == "realistic":
             # Mesma família de perturbações no treino e na avaliação: só os
             # parâmetros da agenda randomizam, a estrutura é fixa.
-            from occupancy import OccupancyModel
+            from .occupancy import OccupancyModel
             modelo = OccupancyModel(
                 max_occupancy=cfg.max_occupancy,
                 tau_minutes=cfg.occupancy_tau_minutes,
@@ -295,7 +256,7 @@ class ClassroomACEnv(gym.Env):
                 # janela ocupada.
                 self.scenario_occupancy = int(options["occupancy"])
                 if cfg.train_occupancy_mode == "realistic":
-                    from occupancy import OccupancyModel
+                    from .occupancy import OccupancyModel
                     modelo = OccupancyModel(
                         max_occupancy=cfg.max_occupancy,
                         tau_minutes=cfg.occupancy_tau_minutes,
@@ -421,6 +382,15 @@ class ClassroomACEnv(gym.Env):
                 ComfortLevel.WARM: -5.0,
                 ComfortLevel.VERY_HOT: -15.0,
             }[self.comfort_level()]
+
+        if cfg.comfort_type == "hinge":
+            # eq. 1 de Wei et al. (2017): penalidade LINEAR só fora da faixa,
+            # sem bônus dentro. Dentro da faixa o gradiente vem inteiramente do
+            # custo de energia — é a formulação mais simples da literatura, e o
+            # contraponto natural ao "Platô Quadrático com gradiente".
+            acima = max(0.0, temp - cfg.temp_comfort_max)
+            abaixo = max(0.0, cfg.temp_comfort_min - temp)
+            return -cfg.comfort_hinge_lambda * (acima + abaixo)
 
         if cfg.comfort_type == "band":
             # Faixa aceitável: sem preferência interna, parede íngreme fora.

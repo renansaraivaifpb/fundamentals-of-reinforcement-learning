@@ -8,8 +8,8 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 
-from ac_physics import ACState
-from config import ClassroomConfig
+from .physics import ACState
+from .config import ClassroomConfig
 
 # Tabela 3: condição inicial (temperatura, hora de início) × ocupação.
 INITIAL_CONDITIONS: List[Tuple[str, float, int]] = [

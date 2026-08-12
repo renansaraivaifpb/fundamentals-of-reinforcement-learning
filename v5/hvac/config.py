@@ -26,8 +26,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import Dict, Optional, Tuple
 
-from ac_physics import ACPhysicsModel
-from demand_sizing import DEFAULT_MARGIN, DemandSizing, size_contracted_demand
+from .physics import ACPhysicsModel
+from .demand_sizing import DEFAULT_MARGIN, DemandSizing, size_contracted_demand
 
 
 @dataclass
@@ -82,11 +82,20 @@ class ClassroomConfig:
     # NÃO havia outro gradiente dentro da faixa; aqui o custo de energia e a folga
     # de demanda fornecem o gradiente. Um platô plano só é zona morta quando nada
     # mais varia dentro dele.
-    comfort_type: str = "plateau"  # 'plateau'|'quadratic'|'step'|'huber'|'band'
+    # 'hinge' é a recompensa de Wei et al. (DAC 2017), referência fundacional de
+    # DRL para HVAC: r_conforto = -lambda * ([T - T_max]+ + [T_min - T]+). Sem
+    # bônus base, sem platô, sem gradiente interno. Existe aqui para que a
+    # formulação do manuscrito seja comparável à da literatura que a antecede —
+    # a ablação já mostrou que a quadrática convencional empata com a proposta, e
+    # esta é ainda mais simples.
+    comfort_type: str = "plateau"  # 'plateau'|'quadratic'|'step'|'huber'|'band'|'hinge'
     # Raio da zona quadratica do conforto Huber (usado so por comfort_type='huber').
     comfort_huber_delta: float = 0.5
     # Inclinação da parede fora da faixa (só para comfort_type='band').
     band_wall_slope: float = 40.0
+    # Peso da violação de faixa em comfort_type='hinge' (lambda da eq. 1 de
+    # Wei et al. 2017).
+    comfort_hinge_lambda: float = 10.0
     comfort_bonus: float = 10.0            # B          # INFERIDO
     comfort_gradient: float = 4.0          # B_c        (Tabela 2: perfil)
     comfort_sensitivity: float = 0.6       # k          # INFERIDO
@@ -133,6 +142,19 @@ class ClassroomConfig:
     # de exploração de horizonte longo.
     observe_time_to_peak: bool = False
     peak_lookahead_hours: float = 4.0
+
+    # PREVISÃO DA PERTURBAÇÃO EXTERNA, seguindo Wei et al. (DAC 2017): eles
+    # incluem no estado não só a externa atual, mas uma sequência curta de
+    # previsão, "enabling the DRL algorithm to capture the trend of the
+    # environment, perform proactive control". É a informação que separa reagir
+    # de antecipar — e um PI, por construção, não a utiliza.
+    #
+    # RESSALVA: neste ambiente a externa é uma senoide determinística, logo a
+    # previsão é PERFEITA. Num prédio real ela tem erro, e parte da vantagem
+    # medida aqui não sobreviveria. É otimismo declarado, não escondido.
+    observe_outdoor_forecast: bool = False
+    forecast_steps: int = 3               # passos à frente
+    forecast_horizon_hours: float = 2.0   # janela total prevista
 
     # ERRO escalado pela tolerância, em vez de temperatura absoluta escalada pela
     # faixa do equipamento. Medido: com t_norm = (T-15)/20, a faixa de ±0,5 °C
@@ -308,7 +330,7 @@ class ClassroomConfig:
     @property
     def tariff(self):
         """Schedule tarifário resolvido (memoizado por instância)."""
-        from tariff import get_tariff
+        from .tariff import get_tariff
         if not hasattr(self, "_tariff_cache") or self._tariff_cache[0] != self.tariff_name:
             object.__setattr__(self, "_tariff_cache",
                                (self.tariff_name, get_tariff(self.tariff_name)))
@@ -468,6 +490,39 @@ def config_for_lab2(profile: str, **overrides) -> ClassroomConfig:
         raise KeyError(f"Perfil '{profile}' inexistente. Use: {list(LAB_PROFILES)}")
     return replace(ClassroomConfig(),
                    **{**LAB2_BASE, **LAB_PROFILES[profile], **overrides})
+
+
+# --- Eixos de ablação declarados ------------------------------------------
+#
+# PROBLEMA QUE ISTO RESOLVE: `LAB2_BASE` altera seis subsistemas de uma vez, e o
+# comentário do próprio dicionário afirma que as mudanças são "independentes e
+# testáveis isoladamente" — mas elas nunca foram testadas isoladamente, porque a
+# config não oferecia um eixo para isso. O resultado prático foi que, quando o
+# conjunto todo não superou o PI, ficou impossível dizer QUAL das seis mudanças
+# ajudou, qual atrapalhou e qual foi neutra.
+#
+# Declarar os grupos torna a ablação uma varredura de uma linha em vez de um
+# dicionário editado à mão a cada execução. Ver `train.py --ablate-group`.
+ABLATION_GROUPS: Dict[str, Dict[str, object]] = {
+    "aquecimento":   {"heating_enabled": False},
+    "acao_continua": {"continuous_action": False},
+    "obs_pid":       {"observe_scaled_error": False, "observe_integral": False},
+    "obs_derivada":  {"observe_derivative": False},
+    "obs_tarifa":    {"observe_time_to_peak": False},
+    "obs_demanda":   {"observe_demand_headroom": False},
+    "penal_derivada": {"derivative_penalty": 0.0},
+    "restricao_demanda": {"demand_limit_enabled": False},
+    "ocupacao_realista": {"train_occupancy_mode": "random_walk"},
+    # Eixos vindos de Wei et al. (2017), ver features.py e env.py.
+    "obs_previsao": {"observe_outdoor_forecast": False},
+}
+
+
+def config_ablacao(profile: str, grupo: str, **overrides) -> ClassroomConfig:
+    """Config do laboratório com UM grupo desligado — o resto idêntico."""
+    if grupo not in ABLATION_GROUPS:
+        raise KeyError(f"grupo '{grupo}' inexistente. Use: {list(ABLATION_GROUPS)}")
+    return config_for_lab2(profile, **{**ABLATION_GROUPS[grupo], **overrides})
 
 
 def config_for_lab(profile: str, **overrides) -> ClassroomConfig:

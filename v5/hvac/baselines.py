@@ -19,8 +19,8 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-from ac_physics import ACState
-from config import ClassroomConfig
+from .physics import ACState
+from .config import ClassroomConfig
 
 
 def _temp_from(obs, info: Optional[Dict], ) -> float:
@@ -221,7 +221,7 @@ def tune_pi(
     vantagem do RL. O grid é pequeno de propósito — o objetivo é um adversário
     honesto, não vencer o DQN.
     """
-    from metrics import evaluate_agent
+    from .metrics import evaluate_agent
 
     best = {"kp": kp_grid[0], "ki": ki_grid[0], "score": -np.inf}
     for kp in kp_grid:

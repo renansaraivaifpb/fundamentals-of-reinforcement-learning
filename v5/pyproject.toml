@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hvac-rl"
+version = "5.0.0"
+description = "Ambiente e agentes de controle HVAC — auditoria de RL contra controle clássico"
+requires-python = ">=3.10"
+# Versões fixadas: a v4 não tinha arquivo de dependências, e a consequência já
+# havia aparecido — um shim de compatibilidade numpy 1.x/2.x escrito à mão
+# dentro de um script de avaliação.
+dependencies = [
+    "gymnasium>=0.29,<2.0",
+    "stable-baselines3>=2.3,<3.0",
+    "torch>=2.0",
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "matplotlib>=3.7",
+    "scipy>=1.10",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4"]
+extra = ["sb3-contrib>=2.3"]
+
+[tool.setuptools.packages.find]
+include = ["hvac*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

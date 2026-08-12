@@ -1,0 +1,70 @@
+{
+  "figura1_decomposicao": {
+    "rotulos": [
+      "Termostato (zona morta = 0)",
+      "+ histerese (zona morta = 1 °C)",
+      "PI sintonizado (Kp=1,3; Ki=0,2)",
+      "DQN 550k passos"
+    ],
+    "valores": [
+      54.0,
+      77.66666666666667,
+      86.5,
+      86.5
+    ],
+    "ganhos": [
+      54.0,
+      23.66666666666667,
+      8.833333333333329,
+      0.0
+    ]
+  },
+  "figura2_ablacao": {
+    "completa": 83.66666666666667,
+    "convencional": 83.11111111111111,
+    "sem_short_cycling": 83.66666666666667,
+    "sem_penal_frio": 82.55555555555556,
+    "quadratica_pura": 82.33333333333333,
+    "sem_penal_troca": 82.05555555555556,
+    "degraus_legado": 69.1111111111111,
+    "sem_gradiente": 47.72222222222223
+  },
+  "figura3_permanencia": {
+    "violacoes_mole_pct": 71.42857142857143,
+    "violacoes_dura_pct": 6.41025641025641,
+    "mediana_mole_min": 12.0,
+    "mediana_dura_min": 48.0
+  },
+  "figura4_precisao": {
+    "PI bidirecional": {
+      "na_tol_%": 100.0,
+      "sigma": 0.088,
+      "custo_dia": 14.759
+    },
+    "TD3 Lab_Equilibrado": {
+      "na_tol_%": 100.0,
+      "sigma": 0.198,
+      "custo_dia": 16.436
+    },
+    "TD3 Lab_Precisao": {
+      "na_tol_%": 97.333,
+      "sigma": 0.186,
+      "custo_dia": 18.143
+    },
+    "SAC Lab_Precisao": {
+      "na_tol_%": 94.222,
+      "sigma": 0.268,
+      "custo_dia": 16.402
+    },
+    "SAC Lab_Equilibrado": {
+      "na_tol_%": 92.0,
+      "sigma": 0.225,
+      "custo_dia": 16.897
+    },
+    "TD3 Lab_Economico": {
+      "na_tol_%": 86.667,
+      "sigma": 0.293,
+      "custo_dia": 15.498
+    }
+  }
+}

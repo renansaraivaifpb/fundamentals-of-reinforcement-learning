@@ -22,7 +22,7 @@ from typing import Dict, List, Optional, Sequence
 import numpy as np
 import pandas as pd
 
-from config import ClassroomConfig
+from .config import ClassroomConfig
 
 
 def run_episode(
@@ -59,7 +59,7 @@ def is_controllable(env, scenario: Dict, seed: Optional[int] = None) -> bool:
     Contrafactual do paper: com o AC sempre desligado, a sala passaria de
     26 °C na janela ocupada? Se não, resfriar não era necessário.
     """
-    from scenarios import AlwaysOffAgent
+    from .scenarios import AlwaysOffAgent
 
     df = run_episode(AlwaysOffAgent(), env, scenario, seed=seed)
     occupied = df[df["occupied"]]

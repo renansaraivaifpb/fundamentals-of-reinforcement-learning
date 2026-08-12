@@ -61,7 +61,7 @@ def config_from_metadata(meta: Dict):
     o modelo antigo foi treinado sem eles. Campos removidos são ignorados em vez
     de estourar.
     """
-    from config import ClassroomConfig
+    from .config import ClassroomConfig
 
     validos = {f.name for f in fields(ClassroomConfig)}
     brutos = dict(meta.get("env_params") or {})
@@ -84,7 +84,7 @@ def config_from_metadata(meta: Dict):
     # bloco `ac_physics` quando presente.
     fis = meta.get("ac_physics") or {}
     if fis:
-        from ac_physics import ACPhysicsModel, ACState
+        from .physics import ACPhysicsModel, ACState
 
         campos = {}
         if "capacity_btu_per_hour" in fis:
@@ -135,22 +135,60 @@ def load_agent(model_path: str, device: str = "cpu") -> Tuple[object, object, Di
     model = classes[algo].load(model_path, device=device)
     cfg = config_from_metadata(meta)
 
-    # Verificação do contrato: o espaço de observação do modelo tem de casar com
-    # o do ambiente reconstruído. Se não casar, a config do metadado está
-    # incompleta e é melhor falhar aqui que reportar métricas inválidas.
-    from env import ClassroomACEnv
+    from .env import ClassroomACEnv
 
     env = ClassroomACEnv(config=cfg)
-    esperado = model.observation_space.shape
-    obtido = env.observation_space.shape
+    assert_schema_compatible(model, env, meta, os.path.basename(model_path))
+    return model, cfg, meta
+
+
+def assert_schema_compatible(model, env, meta: Dict, rotulo: str = "") -> None:
+    """
+    Verifica o contrato da observação: forma E semântica.
+
+    POR QUE A FORMA NÃO BASTA. A v4 comparava apenas `observation_space.shape`.
+    Isso pega o caso grosseiro (9 canais contra 10), mas é cego para o perigoso:
+    duas configurações distintas podem produzir a MESMA dimensão com canais
+    diferentes ou na ordem trocada. O modelo carrega, avalia, produz números
+    plausíveis — e a política está lendo integral onde deveria ler derivada.
+
+    Um caso concreto desta base: os modelos do laboratório foram gravados como
+    `..._lab2_obs9.zip`. Ao habilitar a restrição de demanda, a observação passou
+    a ter 10 canais e o sufixo do arquivo virou mentira, silenciosamente. A
+    dimensão morava no NOME DO ARQUIVO por falta de lugar melhor.
+
+    Aqui o schema — nomes ordenados dos canais — é gravado no metadado e
+    conferido na carga. Modelos anteriores ao schema (metadado sem a chave) só
+    podem ser verificados pela forma; o aviso torna isso explícito em vez de
+    presumir compatibilidade.
+    """
+    esperado, obtido = model.observation_space.shape, env.observation_space.shape
     if esperado != obtido:
         raise ValueError(
-            f"contrato violado em {os.path.basename(model_path)}: modelo espera "
-            f"obs {esperado}, ambiente reconstruído dá {obtido}. O metadado não "
-            "descreve a configuração de treino por completo."
+            f"contrato violado em {rotulo}: modelo espera obs {esperado}, "
+            f"ambiente reconstruído dá {obtido}. O metadado não descreve a "
+            "configuração de treino por completo."
         )
 
-    return model, cfg, meta
+    gravado = (meta.get("obs_schema") or {}).get("nomes")
+    if not gravado:
+        import warnings
+        warnings.warn(
+            f"{rotulo}: metadado sem `obs_schema` (modelo anterior à v5). "
+            "Só foi possível conferir a FORMA da observação, não a ordem dos "
+            "canais — uma troca de ordem passaria despercebida.",
+            RuntimeWarning, stacklevel=2)
+        return
+
+    atual = env.obs_schema["nomes"]
+    if list(gravado) != list(atual):
+        raise ValueError(
+            f"contrato violado em {rotulo}: a ordem/identidade dos canais mudou.\n"
+            f"  treino:    {list(gravado)}\n"
+            f"  ambiente:  {list(atual)}\n"
+            "Avaliar assim faria a política ler cada canal com o significado "
+            "errado, produzindo métricas plausíveis e inválidas."
+        )
 
 
 def make_env_factory(cfg, meta: Dict, extra_wrappers=()):
@@ -158,8 +196,8 @@ def make_env_factory(cfg, meta: Dict, extra_wrappers=()):
     Fábrica de ambientes que respeita o contrato do modelo, incluindo o
     `action_repeat` — cuja omissão foi o bug original do `analyzer_v4.1.py`.
     """
-    from env import ClassroomACEnv
-    from wrappers import ActionRepeatWrapper
+    from .env import ClassroomACEnv
+    from .wrappers import ActionRepeatWrapper
 
     repeat = int(meta.get("action_repeat", 1))
 

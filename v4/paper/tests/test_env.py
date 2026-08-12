@@ -1261,3 +1261,215 @@ def test_steady_state_metrics_are_nan_when_never_settles():
                      seed=0, pass_info_to_agent=True)
     m = episode_metrics(df, cfg)
     assert np.isnan(m["in_tolerance_ss_pct"]) or m["in_tolerance_ss_pct"] >= 0
+
+
+# ============ Demanda contratada (Grupo A) ================================
+
+def test_demand_is_measured_as_15min_average():
+    """
+    A ANEEL mede demanda como média INTEGRADA de 15 min, não potência
+    instantânea: um pico de 1 minuto não fatura, 15 min de potência alta sim.
+    """
+    from dataclasses import replace
+
+    from config import config_for_lab2
+    from demand import DemandContract, DemandTracker
+
+    cfg = replace(config_for_lab2("Lab_Equilibrado"), demand_limit_enabled=True)
+    tr = DemandTracker(DemandContract(contracted_kw=1.6), cfg.dt)
+    # 15 min / 6 min = 2,5 -> floor = 2 (12 min), escolha CONSERVADORA: janela
+    # mais curta promedia menos e reporta pico maior. Janela mais longa faria o
+    # controlador parecer melhor do que é.
+    assert tr.n == 2, f"janela esperada de 2 passos (12 min), obtive {tr.n}"
+
+    # Um pico isolado é diluído pela média.
+    for _ in range(5):
+        tr.update(0.0)
+    medida = tr.update(2.93)
+    assert medida < 2.93, "pico isolado deveria ser diluído pela média"
+    # Potência alta sustentada, sim.
+    for _ in range(5):
+        medida = tr.update(2.93)
+    assert medida == pytest.approx(2.93, abs=0.01)
+
+
+def test_demand_constraint_is_feasible_but_requires_anticipation():
+    """
+    A estrutura que torna o problema interessante: manter em regime cabe no
+    contrato, mas o pulldown a plena carga não. Só quem modula fica dentro.
+
+    REGRESSÃO: a versão anterior deste teste comparava contra `limite = 1.6`
+    HARDCODED, enquanto a config em uso valia 0,70. O teste que existia para
+    garantir factibilidade nunca tocou o valor real — e o valor real era
+    infactível (72 % abaixo do regime de 1,204 kW). Um teste de restrição tem de
+    ler a restrição VIGENTE, nunca uma cópia.
+    """
+    from config import config_for_lab2
+
+    cfg = config_for_lab2("Lab_Equilibrado")
+    limite = cfg.demand_contracted_kw           # o valor EM USO, não uma cópia
+
+    s = cfg.demand_sizing
+    assert s.steady_state_kw < limite, (
+        f"regime ({s.steady_state_kw:.3f} kW) não cabe em {limite:.3f} kW: a "
+        "restrição é infactível e nenhuma política a respeita")
+    assert s.pulldown_kw > limite, (
+        "pulldown cabe no limite: a restrição não aperta e o problema volta a "
+        "ser rastreamento puro")
+    # Aquecimento pleno também tem de estourar, senão a restrição vaza pelo lado
+    # do aquecimento num equipamento reversível.
+    assert s.heating_full_kw > limite
+
+
+def test_contracted_demand_is_derived_not_tuned():
+    """
+    O valor contratado deve sair da condição de projeto, não de uma constante.
+
+    É a mesma exigência que esta reprodução faz ao manuscrito: uma constante
+    escolhida à mão dentro de uma RESTRIÇÃO é indistinguível de uma restrição
+    calibrada para produzir o resultado desejado.
+    """
+    from dataclasses import replace
+
+    from config import ClassroomConfig, config_for_lab2
+    from demand_sizing import size_contracted_demand
+
+    cfg = config_for_lab2("Lab_Equilibrado")
+    esperado = size_contracted_demand(
+        physics=cfg.physics,
+        max_occupancy=cfg.max_occupancy,
+        heat_gain_per_person=cfg.heat_gain_per_person,
+        heat_transfer_coeff=cfg.heat_transfer_coeff,
+        outdoor_base_temp=cfg.outdoor_base_temp,
+        outdoor_amplitude=cfg.outdoor_amplitude,
+        ideal_temp=cfg.ideal_temp,
+        margin=cfg.demand_contract_margin,
+    )
+    assert cfg.demand_contracted_kw == pytest.approx(esperado.contracted_kw)
+    # A margem tem de ser exatamente a folga sobre o regime.
+    assert cfg.demand_contracted_kw == pytest.approx(
+        esperado.steady_state_kw * (1.0 + cfg.demand_contract_margin))
+
+    # Sala pior isolada exige mais regime => contrato maior. Um CAMPO congelaria
+    # o valor da sala de treino e aplicaria um contrato errado à Tabela 6.
+    ruim = replace(cfg, heat_transfer_coeff=0.8)
+    boa = replace(cfg, heat_transfer_coeff=0.3)
+    assert ruim.demand_contracted_kw > cfg.demand_contracted_kw > boa.demand_contracted_kw
+
+    # O override existe, mas é explícito.
+    forcado = replace(cfg, demand_contracted_kw_manual=0.70)
+    assert forcado.demand_contracted_kw == pytest.approx(0.70)
+
+
+def test_config_propagates_heating_to_physics_without_an_env():
+    """
+    REGRESSÃO: `physics.heating_enabled` só era ligado como efeito colateral de
+    instanciar `ClassroomACEnv`. Qualquer consumidor que lesse a física direto da
+    config — `DemandAwarePI._max_heat_load()`, entre outros — via um equipamento
+    só-frio, e silenciosamente.
+    """
+    from config import config_for_lab2
+
+    cfg = config_for_lab2("Lab_Equilibrado")
+    assert cfg.heating_enabled
+    assert cfg.physics.heating_enabled, (
+        "config incompleta até que um env seja construído")
+    assert cfg.physics.electrical_kw_signed(-1.0) > 0.0
+    assert len(cfg.physics.discrete_levels()) == 7
+
+
+def test_naive_pi_violates_demand_and_aware_pi_does_not():
+    """
+    O adversário honesto: comparar RL que enxerga a restrição contra PI que a
+    ignora seria o mesmo pecado que os revisores apontaram no manuscrito.
+    """
+    from dataclasses import replace
+
+    from baselines import DemandAwarePI
+    from config import config_for_lab2
+
+    cfg = replace(config_for_lab2("Lab_Equilibrado"), demand_limit_enabled=True)
+    cen = {"start_temp": 30.0, "occupancy": 45, "hour": 14}
+
+    def pico(agente):
+        env = ActionRepeatWrapper(ClassroomACEnv(config=cfg), repeat=2)
+        run_episode(agente, env, cen, seed=0, pass_info_to_agent=True)
+        return env.unwrapped.demand.peak_kw
+
+    ingenuo = pico(PIController(cfg, kp=1.3, ki=0.2, discrete=False))
+    ciente = pico(DemandAwarePI(cfg, kp=1.3, ki=0.2, discrete=False))
+    assert ingenuo > cfg.demand_contracted_kw, "PI ingênuo deveria violar"
+    assert ciente <= cfg.demand_contracted_kw + 0.01, "PI ciente não deveria violar"
+
+
+def test_demand_limit_is_symmetric():
+    """
+    REGRESSÃO: meu primeiro limitador cortava só o resfriamento. Em equipamento
+    reversível, o aquecimento a plena carga puxa 2,198 kW e fura o mesmo limite
+    pelo outro lado.
+
+    REGRESSÃO 2 (deste teste): ele passava de forma VACUOSA. Como
+    `physics.heating_enabled` só era ligado ao instanciar um env, aqui
+    `_max_heat_load()` devolvia 0,0 e a ação a 15 °C saía -0,0 — o assert
+    verificava 0 kW <= limite e nunca exercitava o caminho protegido. Daí o
+    assert de que a ação de fato AQUECE, sem o qual o teste não vale nada.
+    """
+    from dataclasses import replace
+
+    from baselines import DemandAwarePI
+    from config import config_for_lab2
+
+    cfg = replace(config_for_lab2("Lab_Equilibrado"), demand_limit_enabled=True)
+    assert cfg.physics.heating_enabled, "pré-condição: equipamento reversível"
+
+    pi = DemandAwarePI(cfg, kp=5.0, ki=0.0, discrete=False)
+    pi.reset()
+    # Muito frio: o PI pediria aquecimento máximo.
+    a, _ = pi.predict(None, info={"temperature": 15.0})
+    carga = float(np.asarray(a).reshape(-1)[0])
+    assert carga < 0.0, "a 15 °C o controlador tem de AQUECER (teste vacuoso?)"
+    assert cfg.physics.electrical_kw_signed(carga) <= cfg.demand_contracted_kw + 1e-6
+    # E o corte tem de ser ATIVO: sem limitador o PI pediria -1,0.
+    assert carga > -1.0, "limitador inativo no lado do aquecimento"
+
+
+def test_demand_headroom_in_observation():
+    """Sem a folga na observação, a restrição não é aprendível."""
+    from dataclasses import replace
+
+    from config import config_for_lab2
+
+    # Os DOIS lados explícitos: ancorar num default vigente quebra quando o
+    # default muda — foi o que aconteceu ao ligar demand_limit_enabled no
+    # LAB2_BASE. Teste de contrato não pode depender de configuração ambiente.
+    sem = replace(config_for_lab2("Lab_Equilibrado"), demand_limit_enabled=False)
+    com = replace(config_for_lab2("Lab_Equilibrado"), demand_limit_enabled=True)
+    assert (ClassroomACEnv(config=com).observation_space.shape[0]
+            == ClassroomACEnv(config=sem).observation_space.shape[0] + 1)
+
+    env = ClassroomACEnv(config=com)
+    obs, _ = env.reset(seed=0, options={"start_temp": 30.0, "occupancy": 45, "hour": 14})
+    assert obs[-1] == pytest.approx(1.0)          # começa livre
+    for _ in range(6):
+        obs, *_ = env.step([1.0])                 # plena carga
+    assert obs[-1] < 0.2, "folga não caiu com potência máxima"
+
+
+def test_hiding_occupancy_shrinks_observation():
+    """
+    Opção de realismo (crítica do R1): num laboratório real não há contagem de
+    pessoas. NÃO favorece o RL — o PI nunca usou ocupação —, então é honestidade
+    de cenário, não hipótese de vantagem.
+    """
+    from dataclasses import replace
+
+    from config import config_for_lab2
+
+    base = config_for_lab2("Lab_Equilibrado")
+    sem = replace(base, observe_occupancy=False)
+    assert (ClassroomACEnv(config=sem).observation_space.shape[0]
+            == ClassroomACEnv(config=base).observation_space.shape[0] - 1)
+    env = ClassroomACEnv(config=sem)
+    for ep in range(3):
+        obs, _ = env.reset(seed=ep)
+        assert env.observation_space.contains(obs)
