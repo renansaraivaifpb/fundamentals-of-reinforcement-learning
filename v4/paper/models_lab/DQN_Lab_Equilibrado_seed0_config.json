@@ -1,0 +1,111 @@
+{
+  "algo": "DQN",
+  "profile": "Lab_Equilibrado",
+  "seed": 0,
+  "timesteps": 550000,
+  "action_repeat": 2,
+  "declared_hyperparams": {
+    "learning_rate": 5e-05,
+    "batch_size": 64
+  },
+  "effective_hyperparams": {
+    "learning_rate": 5e-05,
+    "batch_size": 64,
+    "gamma": 0.99,
+    "tau": 1.0,
+    "buffer_size": 1000000,
+    "learning_starts": 100,
+    "train_freq": [
+      4,
+      "TrainFrequencyUnit.STEP"
+    ],
+    "gradient_steps": 1,
+    "target_update_interval": 10000,
+    "exploration_fraction": 0.1,
+    "exploration_initial_eps": 1.0,
+    "exploration_final_eps": 0.05,
+    "max_grad_norm": 10,
+    "n_steps": 1,
+    "policy_class": "DQNPolicy",
+    "network_architecture": "DQNPolicy(\n  (q_net): QNetwork(\n    (features_extractor): FlattenExtractor(\n      (flatten): Flatten(start_dim=1, end_dim=-1)\n    )\n    (q_net): Sequential(\n      (0): Linear(in_features=4, out_features=64, bias=True)\n      (1): ReLU()\n      (2): Linear(in_features=64, out_features=64, bias=True)\n      (3): ReLU()\n      (4): Linear(in_features=64, out_features=4, bias=True)\n    )\n  )\n  (q_net_target): QNetwork(\n    (features_extractor): FlattenExtractor(\n      (flatten): Flatten(start_dim=1, end_dim=-1)\n    )\n    (q_net): Sequential(\n      (0): Linear(in_features=4, out_features=64, bias=True)\n      (1): ReLU()\n      (2): Linear(in_features=64, out_features=64, bias=True)\n      (3): ReLU()\n      (4): Linear(in_features=64, out_features=4, bias=True)\n    )\n  )\n)",
+    "n_parameters": 9480
+  },
+  "env_params": {
+    "max_occupancy": 45,
+    "heat_gain_per_person": 0.3,
+    "thermal_mass": 15.0,
+    "heat_transfer_coeff": 0.5,
+    "temperature_noise_std": 0.01,
+    "dt": 0.1,
+    "episode_steps": 240,
+    "temp_min_clip": 10.0,
+    "temp_max_clip": 40.0,
+    "season": "summer",
+    "outdoor_base_temp": 28.0,
+    "outdoor_amplitude": 8.0,
+    "outdoor_peak_hour": 14.0,
+    "ideal_temp": 24.0,
+    "temp_comfort_min": 22.0,
+    "temp_comfort_max": 26.0,
+    "temp_narrow_min": 23.0,
+    "temp_narrow_max": 25.0,
+    "occupied_hour_start": 7,
+    "occupied_hour_end": 22,
+    "comfort_type": "huber",
+    "comfort_huber_delta": 0.5,
+    "comfort_bonus": 10.0,
+    "comfort_gradient": 0.0,
+    "comfort_sensitivity": 8.0,
+    "energy_penalty_factor": 3.0,
+    "action_change_penalty": -0.5,
+    "cold_action_penalty": -2.0,
+    "short_cycle_penalty": -5.0,
+    "min_dwell_minutes": 36.0,
+    "tariff_name": "enel_sp_branca",
+    "energy_tariff_brl_per_kwh": 0.8,
+    "peak_hours": [
+      18,
+      21
+    ],
+    "peak_tariff_multiplier": 1.6,
+    "tariff_with_taxes": false,
+    "peak_penalty_multiplier": 1.6,
+    "price_aware_penalty": true,
+    "lab_tolerance": 0.5,
+    "shield_force_cool_above": 28.0,
+    "shield_force_off_below": 20.0
+  },
+  "ac_physics": {
+    "capacity_btu_per_hour": 30000.0,
+    "load_fraction": {
+      "OFF": 0.0,
+      "LOW": 0.25,
+      "MEDIUM": 0.55,
+      "HIGH": 1.0
+    },
+    "cop": {
+      "LOW": 3.45,
+      "MEDIUM": 3.59,
+      "HIGH": 3.0
+    },
+    "electrical_kw": {
+      "OFF": 0.0,
+      "LOW": 0.6371,
+      "MEDIUM": 1.347,
+      "HIGH": 2.9307
+    }
+  },
+  "reward_profile": {
+    "comfort_type": "huber",
+    "comfort_sensitivity": 8.0,
+    "comfort_huber_delta": 0.5,
+    "comfort_gradient": 0.0,
+    "energy_penalty_factor": 3.0,
+    "action_change_penalty": -0.5,
+    "lab_tolerance": 0.5
+  },
+  "tariff": "Enel SP — Tarifa Branca B1",
+  "expert_init": false,
+  "hard_dwell": false,
+  "warm_start": {}
+}
