@@ -21,10 +21,11 @@ cd project1-boptest && docker compose up -d web worker provision
 
 # se a porta 8000 estiver ocupada, crie docker-compose.override.yml:
 #   services: {web: {ports: !override ["8098:8000"]}}
+# e passe --url http://127.0.0.1:8098 abaixo
 
 # 2. experimento
 cd v5
-python experimentos/boptest_transferencia.py --url http://127.0.0.1:8098
+python experimentos/boptest_transferencia.py --url http://127.0.0.1:8000
 ```
 
 Resultado em `experimentos/resultados_boptest.csv`.
@@ -59,6 +60,26 @@ Esse número é, por si, um resultado: ele mede de fora a ameaça que a Seção 
 declara. A planta do artigo é lenta demais e o equipamento pequeno demais frente
 a uma zona real do BESTEST.
 
+## O achado
+
+Com os ganhos do PI **congelados** da planta local, os agentes vencem por 10,7 e
+17,0 pontos percentuais. Re-sintonizado dentro do emulador (Kp = 0,2; Ki = 0,05),
+o PI volta a liderar: 84,0 % contra 81,3 % no dia de pico e 100,0 % contra 97,7 %
+no dia típico, este **fora da amostra** da sintonia, com menos energia e margem
+muito maior na faixa estreita.
+
+A leitura correta exige as duas linhas juntas. Reportar só a primeira inverteria
+a conclusão do artigo; reportar só a segunda esconderia que o experimento
+reproduziu, contra o baseline deste próprio trabalho, o defeito que o artigo
+audita — basta congelar o adversário em condições novas para o aprendizado
+"ganhar" dez pontos.
+
+Uma divergência merece registro: sob o KPI nativo do BOPTEST (`tdis_tot`) os
+agentes lideram, porque esse indicador é calculado contra os setpoints do caso,
+que incluem recuo noturno, e não contra a faixa [22, 26] °C que este trabalho
+controla. As duas famílias de métrica premiam objetivos distintos, e o vencedor
+muda com a escolha.
+
 ## O que **não** transfere
 
 1. **Curva de COP.** O fancoil do emulador não reproduz o pico de eficiência em
@@ -82,5 +103,5 @@ pudesse ser testado com o serviço de pé não seria testado. O teste de integra
 real é pulado automaticamente quando `BOPTEST_URL` não responde.
 
 ```bash
-BOPTEST_URL=http://127.0.0.1:8098 python -m pytest tests/test_boptest.py -q
+BOPTEST_URL=http://127.0.0.1:8000 python -m pytest tests/test_boptest.py -q
 ```

@@ -10,8 +10,10 @@
 > A suíte deste diretório está em **79 testes + 1 xfailed** (algumas passagens
 > abaixo citam contagens anteriores).
 
-Implementação fiel ao manuscrito `29914_Paper_manuscript.pdf`, isolada em
-`v4/paper/` para não sobrescrever o código histórico do `v4/`.
+Implementação fiel à especificação do manuscrito auditado, isolada em
+`v4/paper/` para não sobrescrever o código histórico do `v4/`. Os quatro
+parâmetros de recompensa que a especificação não publica estão marcados
+`# INFERIDO`, com a base de cada inferência registrada.
 
 ## Arquitetura
 

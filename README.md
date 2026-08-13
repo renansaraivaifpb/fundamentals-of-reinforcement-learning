@@ -25,17 +25,25 @@ O resultado principal é negativo e está medido:
 | Se você quer… | Vá para |
 |---|---|
 | entender os achados, com tabelas e gráficos | `v5/notebooks/` (5 cadernos executados) |
-| o artigo pronto | `v5/paper_auditoria_hvac_rl.docx` (e a versão curta) |
 | o código atual | `v5/hvac/` |
-| a reprodução fiel do manuscrito | `v4/paper/` |
+| a transferência para benchmark de terceiros | `v5/hvac/boptest/` |
+| a implementação fiel do manuscrito auditado | `v4/paper/` |
 | a resposta ponto a ponto aos pareceres | `v4/paper/REVISAO.md` |
+
+Os artigos **não são versionados**: são saída dos geradores, e versionar o
+`.docx` ao lado do código que o produz cria duas fontes de verdade e um
+conflito binário a cada regeração. O que se revisa é o gerador.
 
 ```bash
 cd v5
 pip install -e .
-python -m pytest tests/ -q          # 18 testes
-python notebooks/build_notebooks.py # regera os cadernos
-python gerar_paper.py               # regera o artigo
+python -m pytest tests/ -q           # 35 testes
+python notebooks/build_notebooks.py  # regera os 5 cadernos
+python gerar_paper.py                # artigo em português (22 tab., 17 fig.)
+python gerar_paper.py --curto        # versão reduzida (20 tab., 13 fig.)
+python gerar_paper_eb.py             # manuscrito em inglês (Energy & Buildings)
+python gerar_cover_letter.py         # cover letter da submissão
+python gerar_paper_eb.py --tex       # o mesmo texto na classe LaTeX da Elsevier
 ```
 
 ## Estrutura do repositório
@@ -81,7 +89,18 @@ melhor.
 controladores repreparados para cada largura de faixa, a vantagem do PI **cresce**:
 +0,0 → +3,0 → +8,3 pp para ±2,0, ±1,0 e ±0,5 °C.
 
-**6. O agente descarta o nível de melhor eficiência.** Os três perfis acionam
+**6. O resultado sobrevive a um emulador de terceiros — desde que o baseline
+também seja repreparado.** Os mesmos agentes, **sem retreino**, foram executados
+contra o caso `bestest_air` do [BOPTEST](https://ibpsa.github.io/project1-boptest/),
+emulador Modelica mantido pelo IBPSA. Com os ganhos do PI **congelados** da
+planta local, os agentes vencem por 10,7 e 17,0 pp; re-sintonizado dentro do
+emulador, o PI volta a liderar (84,0 % contra 81,3 % no dia de pico; 100,0 %
+contra 97,7 % no dia típico, este **fora da amostra** da sintonia). O
+experimento reproduziu, contra o baseline deste próprio trabalho, o defeito que
+o artigo audita: basta congelar o adversário em condições novas para o RL
+"ganhar" dez pontos. Ver `v5/hvac/boptest/`.
+
+**7. O agente descarta o nível de melhor eficiência.** Os três perfis acionam
 MEDIUM — o de maior COP — em **0,0 %** do tempo, apesar de pesos que variam por
 3–4×. A causa não é a recompensa: um SAC treinado com a recompensa **idêntica** o
 usa como o PI. É *winner-take-all* — a política determinística converte uma
@@ -95,23 +114,55 @@ planta monovariável de primeira ordem, modelo conhecido, objetivo de rastreamen
 majoritariamente contra adversários fracos (ver a classificação por qualidade de
 baseline na Seção 2 do artigo).
 
-Há uma limitação de método que consideramos a mais importante: **o nicho do RL é
-o descasamento de modelo, e um simulador de autoria própria não o exibe por
-construção**. Testar a hipótese exige transferência simulação-realidade ou
-benchmark de terceiros — BOPTEST, EnergyPlus, BuildingGym.
+Havia uma limitação de método que considerávamos a mais importante: **o nicho do
+RL é o descasamento de modelo, e um simulador de autoria própria não o exibe por
+construção**. O achado nº 6 endereça essa limitação, executando os mesmos
+controladores num emulador que não escrevemos. A ressalva que **permanece** é a
+outra: a constante de tempo adotada (30 h) excede a duração do episódio e torna a
+planta local mais benigna que uma sala real. O BOPTEST mede isso de fora — lá a
+plena carga move a zona 8,8 °C em 12 min, contra 0,090 °C por passo aqui.
+
+## Submissão
+
+O manuscrito é gerado, nunca editado à mão. Alvo atual: **Energy & Buildings**
+(Elsevier), que exige dois arquivos.
+
+```bash
+cd v5
+python gerar_paper_eb.py       # submissao_eb/manuscript.docx + figures/
+python gerar_cover_letter.py   # submissao_eb/cover_letter.docx
+python gerar_paper_eb.py --tex # submissao_eb/cas/manuscript.tex (classe cas-sc)
+```
+
+O texto em inglês não é uma tradução paralela: reusa `hvac.results` e
+`hvac.figures`, os mesmos objetos que alimentam os cadernos e o artigo em
+português. A camada `hvac/i18n_en.py` traduz rótulos de figura e rótulos vindos
+de DataFrame, e **levanta exceção** em vez de deixar passar um rótulo sem
+tradução.
+
+A saída LaTeX usa a classe CAS distribuída pela Elsevier. O corpo do artigo
+continua escrito uma única vez: os helpers de `gerar_paper_eb.py` despacham para
+o backend `.docx` ou para `hvac/tex_backend.py`, e as equações são descritas por
+uma árvore que cada backend percorre à sua maneira. A classe CAS não é
+versionada aqui; baixe o pacote da editora e deixe `els-cas-templates/` na raiz.
 
 ## Trabalho em aberto
 
+- Reexecutar o protocolo sob capacidade térmica fisicamente plausível — é a
+  ameaça de maior peso, e o experimento de maior retorno entre os pendentes
+- Ampliar a transferência: mais casos do BOPTEST, mais períodos, e comparação
+  contra o controlador baseline nativo de cada caso
 - Refazer o achado nº 4 com o PI sintonizado **apenas** na partição de
   calibração (a ressalva metodológica que permanece)
+- Elevar de 3 para 8–10 sementes nas comparações principais
 - MPC como controlador de referência
-- Migração para BOPTEST ou BuildingGym
 - Multi-zona com capacidade compartilhada (`v5/hvac/multizone.py`), onde a
   decisão de alocação não admite lei de controle local
 
-## Referência
+## Sobre a implementação auditada
 
-O manuscrito auditado é `29914_Paper_manuscript.pdf`. O código original foi
-perdido; `v4/paper/` é uma reimplementação a partir do texto, com quatro
-parâmetros não publicados marcados `# INFERIDO` e a base de cada inferência
-registrada.
+`v4/paper/` implementa o controlador auditado a partir de sua especificação.
+Quatro constantes da função de recompensa não são publicadas por ela e estão
+marcadas `# INFERIDO`, com a base de cada inferência registrada; a Seção 4.11 do
+artigo examina quais delas podem ser obtidas por argumento em vez de leitura de
+gráfico, e mede o que acontece quando são substituídas.

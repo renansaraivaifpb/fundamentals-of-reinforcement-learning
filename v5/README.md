@@ -11,10 +11,13 @@ se ele aprendeu**.
 ```bash
 cd v5
 pip install -e .                        # imports deixam de depender do cwd
-python -m pytest tests/ -q              # 18 testes
+python -m pytest tests/ -q              # 35 testes
 python notebooks/build_notebooks.py     # regera os 5 cadernos executados
-python gerar_paper.py                   # artigo completo (13 tab., 11 fig.)
-python gerar_paper.py --curto           # versão reduzida (11 tab., 7 fig.)
+python gerar_paper.py                   # artigo completo (22 tab., 17 fig.)
+python gerar_paper.py --curto           # versão reduzida (20 tab., 13 fig.)
+python gerar_paper_eb.py                # manuscrito em inglês (Energy & Buildings)
+python gerar_paper_eb.py --tex          # o mesmo texto na classe LaTeX cas-sc
+python gerar_cover_letter.py            # cover letter da submissão
 python -m hvac.train --lab2 --algos TD3 --seeds 0 1 2
 ```
 
@@ -26,9 +29,15 @@ python -m hvac.train --lab2 --algos TD3 --seeds 0 1 2
 | `notebooks/` | 5 cadernos **executados**, com saídas embutidas |
 | `experimentos/` | scripts de treino longo + CSVs de resultado |
 | `figuras_v5/` | PNGs em 300 dpi |
-| `gerar_paper.py` | monta o artigo a partir de `hvac.results` e `hvac.figures` |
-| `paper_auditoria_hvac_rl.docx` | artigo completo |
-| `paper_auditoria_hvac_rl_curto.docx` | versão reduzida |
+| `hvac/boptest/` | ponte para o BOPTEST: cliente REST, ambiente, avaliação |
+| `gerar_paper.py` | artigo em português, a partir de `hvac.results`/`hvac.figures` |
+| `gerar_paper_eb.py` | manuscrito em inglês; `--tex` emite a classe CAS da Elsevier |
+| `gerar_cover_letter.py` | cover letter, com os números vindos dos mesmos objetos |
+| `hvac/i18n_en.py` | glossário pt→en; erra alto em rótulo sem tradução |
+| `hvac/tex_backend.py` | backend LaTeX dos mesmos helpers do gerador |
+
+Os `.docx`/`.tex` **não são versionados**: são saída dos geradores. Reproduza
+com os comandos acima.
 
 ### Os cadernos
 
@@ -157,6 +166,61 @@ A v4 não tinha arquivo de dependências, e a consequência já havia aparecido:
 shim de compatibilidade numpy 1.x/2.x escrito à mão dentro de um script de
 avaliação. Versões fixadas e pacote instalável em modo editável.
 
+## 9. Transferência para terceiros — `hvac/boptest/`
+
+Responde à ameaça declarada como a mais séria: todos os resultados vinham de um
+simulador de autoria própria, que por construção não exibe descasamento de
+modelo. O módulo executa os **mesmos** controladores contra o
+[BOPTEST](https://ibpsa.github.io/project1-boptest/), emulador Modelica mantido
+pelo IBPSA, sem retreinar nada.
+
+```bash
+# serviço (uma vez; as imagens levam ~10 min para construir)
+git clone https://github.com/ibpsa/project1-boptest.git
+cd project1-boptest && docker compose up -d web worker provision
+
+cd v5 && python experimentos/boptest_transferencia.py --url http://127.0.0.1:8000
+```
+
+Três decisões sustentam o experimento:
+
+**A observação não é redeclarada.** Vem de `hvac/features.py`, a mesma
+declaração única que alimenta o ambiente local. É o que permite carregar um
+agente treinado aqui e executá-lo lá sabendo que cada canal chega à política com
+o significado com que foi treinado. Foi também por isso que não se adotou o
+`boptest-gym` oficial: ele traz sua própria declaração de observação, e manter
+duas em paralelo é exatamente o defeito que `features.py` existe para eliminar.
+
+**As métricas não são recalculadas.** O episódio é reduzido ao mesmo DataFrame do
+ambiente local e entregue a `metrics.episode_metrics`, para que "conforto na
+faixa" e "comutações por hora" tenham a mesma definição nos dois ambientes. Ao
+lado delas reporta-se o conjunto de KPIs nativo do BOPTEST, que é a moeda com que
+a literatura de *building performance simulation* compara controladores.
+
+**O intervalo de controle é derivado, não arbitrado.** O protocolo decide a cada
+12 min, o que é benigno numa planta cuja plena carga move a sala 0,090 °C por
+passo; no `bestest_air` ela move **8,8 °C** no mesmo intervalo, mais que o dobro
+da faixa de conforto inteira. Mantê-lo transformaria o problema em liga-desliga
+para todos os controladores. `boptest/calibracao.py` mede a autoridade do atuador
+e deriva o intervalo de uma condição declarada antes de medir — *a plena carga
+não deve atravessar mais que a meia-faixa em uma decisão* —, o que dá 180 s.
+Esse número é, por si, uma medição externa da ameaça: a planta local é lenta, e
+seu equipamento pequeno, frente a uma zona real.
+
+**O achado.** Com os ganhos do PI congelados da planta local, os agentes vencem
+por 10,7 e 17,0 pp. Re-sintonizado dentro do emulador (Kp = 0,2; Ki = 0,05), o PI
+volta a liderar: 84,0 % contra 81,3 % no dia de pico e 100,0 % contra 97,7 % no
+dia típico, este fora da amostra da sintonia. A transferência reproduziu, contra
+o baseline deste próprio trabalho, o defeito que o artigo audita.
+
+Duas coisas **não** transferem, e estão declaradas: o fancoil do emulador não tem
+o pico de COP em carga parcial do equipamento local, de modo que o achado sobre o
+nível de melhor eficiência não é testável ali; e o emulador não publica contagem
+de ocupantes, então o canal de ocupação é nominal.
+
+`tests/test_boptest.py` roda **sem Docker**: o cliente é substituído por um
+emulador de brinquedo com a mesma interface, porque a camada que erra em silêncio
+é a de tradução — unidades, nomes de ponto, ordem de canais.
 ---
 
 ## O que a v5 **não** faz
@@ -209,6 +273,8 @@ experimento:
 | `experimentos/curva_aprendizado.py` | é falta de treino? | em ±2,0 °C converge sobre o PI; em ±0,5 °C fica 16,9 pp abaixo, com a curva ainda subindo devagar — custo de amostra alto, não impossibilidade |
 | `experimentos/teste_integral.py` | falta o integrador ao agente? | **Refutado** — dar o estado piorou (71,5 → 65,9 %) |
 | `hvac.results.cenarios_aleatorios` | e num conjunto amplo e independente? | 150 cenários: PI e DQN Agressivo empatam em conforto; o PI gasta 11,4 % menos |
+| `experimentos/boptest_transferencia.py` | o resultado sobrevive a um emulador de terceiros? | **Sim, com uma condição** — ver abaixo |
+| `experimentos/boptest_sintonia_pi.py` | os ganhos do PI transferem entre plantas? | **Não**: re-sintonizar recupera 13,3 pp |
 
 ## Achados desta versão
 
