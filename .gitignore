@@ -50,3 +50,27 @@ papers_sugeridos/
 v4/paper/models_lab2/
 v4/paper/logs_lab*/
 v4/paper/logs_obs_ablacao/
+
+# --- Pacote de submissão e manuscritos gerados ---
+# Tudo abaixo é SAÍDA dos geradores em v5/ (gerar_paper.py, gerar_paper_eb.py,
+# gerar_cover_letter.py). Versionar o .docx ao lado do código que o produz cria
+# duas fontes de verdade e um conflito binário a cada regeração; o que precisa
+# ser revisto é o gerador. Reproduza com:
+#     cd v5 && python gerar_paper_eb.py && python gerar_cover_letter.py
+v5/submissao_eb/
+v5/paper_auditoria_hvac_rl.docx
+v5/paper_auditoria_hvac_rl_curto.docx
+paper_auditoria_hvac_rl.pdf
+
+# Classe LaTeX CAS da Elsevier: material de terceiros, redistribuído pela
+# própria editora e baixável de elsevier.com/authors/policies-and-guidelines/
+# latex-instructions. `gerar_paper_eb.py --tex` copia os arquivos de classe
+# para junto do .tex a partir deste diretório.
+els-cas-templates.zip
+els-cas-templates/
+
+# Template .dot da MDPI Energies: mesma categoria, material da editora.
+energies-template.dot
+
+# Manuscrito auditado: PDF não publicado, mantido apenas em disco.
+29914_Paper_manuscript.pdf

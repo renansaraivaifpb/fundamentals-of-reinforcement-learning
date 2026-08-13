@@ -480,6 +480,12 @@ LAB2_BASE = {
     # Faixa como armazenamento, nao setpoint: sem preferencia interna, o
     # gradiente vem do custo. Um PI vai ao centro e desperdica a faixa.
     "comfort_type": "band",
+    # Previsao da externa (Wei et al. 2017). Ligada AQUI, e nao no default, pela
+    # mesma razao das demais features estendidas: o lab2 e o regime em que
+    # antecipar importa (tarifa horaria + demanda contratada), e previsao e
+    # exatamente a informacao que um PI nao consegue usar. No perfil do
+    # manuscrito permanece desligada, preservando a reproducao.
+    "observe_outdoor_forecast": True,
     "continuous_action": True,      # (4) 4 níveis discretos limitam o ripple a ~0,09 °C
 }
 

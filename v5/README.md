@@ -10,10 +10,53 @@ se ele aprendeu**.
 
 ```bash
 cd v5
-pip install -e .                       # imports deixam de depender do cwd
-python -m pytest tests/ -q             # 13 testes
+pip install -e .                        # imports deixam de depender do cwd
+python -m pytest tests/ -q              # 18 testes
+python notebooks/build_notebooks.py     # regera os 5 cadernos executados
+python gerar_paper.py                   # artigo completo (13 tab., 11 fig.)
+python gerar_paper.py --curto           # versão reduzida (11 tab., 7 fig.)
 python -m hvac.train --lab2 --algos TD3 --seeds 0 1 2
 ```
+
+## Mapa do diretório
+
+| Caminho | Conteúdo |
+|---|---|
+| `hvac/` | pacote: ambiente, agentes, baselines, métricas, resultados, figuras |
+| `notebooks/` | 5 cadernos **executados**, com saídas embutidas |
+| `experimentos/` | scripts de treino longo + CSVs de resultado |
+| `figuras_v5/` | PNGs em 300 dpi |
+| `gerar_paper.py` | monta o artigo a partir de `hvac.results` e `hvac.figures` |
+| `paper_auditoria_hvac_rl.docx` | artigo completo |
+| `paper_auditoria_hvac_rl_curto.docx` | versão reduzida |
+
+### Os cadernos
+
+| Caderno | Pergunta |
+|---|---|
+| `01_auditoria_baselines` | a vantagem vem do aprendizado ou do baseline? |
+| `02_ablacao_e_short_cycling` | a recompensa é responsável? a proteção funciona? RL precisa ser profundo? |
+| `03_regimes_estendidos` | existe algum regime que favoreça o RL? |
+| `04_trajetorias_e_faixa_estreita` | como se comportam ao longo do dia? precisão maior favorece o RL? |
+| `05_niveis_de_potencia_e_cenarios_aleatorios` | por que o agente gasta mais? quem mantém melhor a faixa? |
+
+### Arquitetura de dados: fonte única
+
+```
+hvac/results.py  →  números   ─┬─→  notebooks/*.ipynb
+hvac/figures.py  →  gráficos  ─┴─→  gerar_paper.py → .docx
+```
+
+`results.py` **recomputa** o que é barato (rodar controladores nos cenários) e
+**lê dos CSVs** o que exigiu treino. `figures.py` apenas desenha, sobre dados já
+computados. Divergência entre uma tabela e a figura ao lado é impossível por
+construção — era o defeito da v4, cujos PNGs vinham de execuções diferentes das
+que produziram os números reportados.
+
+A numeração de tabelas e figuras do artigo é **derivada da composição**, por
+chave simbólica: cortar uma seção renumera tudo sozinho. Foi assim que a versão
+curta foi produzida sem quebrar referências — e o mecanismo já revelou uma
+legenda ausente e uma citação com número escrito à mão.
 
 ---
 
@@ -126,6 +169,75 @@ controle clássico é a ferramenta indicada.
 O valor de rodar a v5 é outro: se o RL continuar perdendo, agora se perde num
 teste em que ele teve tudo a favor, com incerteza reportada e sem risco de canal
 trocado — o que torna o resultado negativo **muito mais difícil de refutar**.
+
+## Adições vindas da literatura
+
+Após a leitura de dois trabalhos que você indicou, três itens foram
+incorporados — cada um marcado no código com a referência.
+
+**Wei, Wang e Zhu (DAC 2017)** — primeiro trabalho a aplicar DRL a HVAC:
+
+- `comfort_type='hinge'` — a recompensa da eq. 1 deles: `-λ·([T−T_max]⁺ +
+  [T_min−T]⁺)`, linear fora da faixa e nula dentro. Serve de contraponto ao
+  "Platô Quadrático com gradiente" na ablação: é ainda mais simples que a
+  variante `convencional`, que já empatava com a proposta.
+- `observe_outdoor_forecast` — previsão multi-passo da externa no estado, que
+  eles usam para permitir controle proativo. **Ressalva registrada no código:**
+  aqui a externa é uma senoide determinística, então a previsão é *perfeita*;
+  num prédio real teria erro, e parte da vantagem não sobreviveria.
+- `multizone.py` — ação combinatória discreta (`mᶻ`: 64 / 256 / 1024 para 3/4/5
+  zonas) e `MultiNivelWrapper`, adaptação do princípio de decomposição deles,
+  que reduz para 12 / 16 / 20 — linear em vez de exponencial.
+
+**Yuan et al. (Building Simulation)** — compara RBC, PID e RL no mesmo
+experimento:
+
+- `results.curva_aprendizado()` e `figures.fig_curva_aprendizado()` — desempenho
+  contra orçamento de treino, análogo às Figs. 9-10 deles. Responde à objeção
+  "o DQN perde porque treinou pouco?", que nenhum experimento de orçamento fixo
+  responde.
+- `results.consumo_decomposto()` e `figures.fig_consumo_decomposto()` — consumo
+  por nível de potência, análogo à Fig. 11 deles. Revelou o mecanismo do
+  desperdício: **o DQN nunca aciona MEDIUM**, o nível de melhor COP (3,59), e
+  usa o dobro de HIGH, o de pior (3,00).
+
+## Experimentos desta rodada
+
+| Script | Pergunta | Resultado |
+|---|---|---|
+| `experimentos/faixa_estreita.py` | estreitar a faixa favorece o RL? | **Não** — a vantagem do PI cresce: +0,0 → +3,0 → +8,3 pp |
+| `experimentos/curva_aprendizado.py` | é falta de treino? | em ±2,0 °C converge sobre o PI; em ±0,5 °C fica 16,9 pp abaixo, com a curva ainda subindo devagar — custo de amostra alto, não impossibilidade |
+| `experimentos/teste_integral.py` | falta o integrador ao agente? | **Refutado** — dar o estado piorou (71,5 → 65,9 %) |
+| `hvac.results.cenarios_aleatorios` | e num conjunto amplo e independente? | 150 cenários: PI e DQN Agressivo empatam em conforto; o PI gasta 11,4 % menos |
+
+## Achados desta versão
+
+**O nível de melhor eficiência é descartado.** Os três perfis do manuscrito
+acionam MEDIUM — de maior COP (3,59) — em **0,0 %** do tempo, apesar de pesos que
+variam por 3–4×. O perfil Agressivo descarta LOW também, virando liga-desliga
+puro. Um **SAC treinado com a recompensa idêntica** usa MEDIUM em 13,3 %,
+praticamente igual ao PI (12,0 %): mesma recompensa, comportamentos opostos.
+
+A análise dos valores de ação mostra que as quatro opções são **quase
+equivalentes** — a faixa entre elas vale ~1,9 % do valor absoluto, e MEDIUM perde
+~1,2 %. O mecanismo é *winner-take-all*: uma política determinística converte
+margem de ~1 % em uso de 0 %. **Reponderar a recompensa é o caminho errado**; o
+que restaura os níveis intermediários é mudar a classe de política.
+
+**A falha é concentrada, não difusa.** Nos cenários aleatórios, o déficit dos
+perfis Equilibrado e Passivo vive quase todo em **salas vazias de madrugada**
+(−21,7 e −18,2 pp com até 10 ocupantes, contra −4,4 e −3,1 com a sala cheia).
+Com carga mínima, o menor nível não-nulo já é 25 % da capacidade — potência demais.
+
+**Nenhum perfil domina o PI.** Para igualar em precisão, o Agressivo consome
+12,9 % mais; para igualar em consumo, os outros perdem 6–7 pontos de precisão.
+Como os três saem apenas de variar pesos — a tese central do manuscrito —, essa
+variação percorre uma curva inteiramente **dentro** da fronteira de Pareto.
+
+**Métrica saturada.** No conjunto independente, quatro controladores distintos
+dão conforto idêntico na faixa larga (87,88 %): o número é fixado pelo transitório
+de partida, limitado pela física. Uma métrica que não discrimina não deveria ser
+a principal de um artigo.
 
 ## Migração pendente
 

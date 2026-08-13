@@ -1,5 +1,15 @@
 # Reprodução — *Intelligent Classroom HVAC Control Using Deep Reinforcement Learning*
 
+> **Status:** este diretório continua sendo a **reprodução fiel do manuscrito** e
+> a fonte dos modelos treinados e dos CSVs de ablação. O desenvolvimento ativo,
+> porém, migrou para **`v5/`**, que preserva a paridade numérica bit-a-bit e
+> acrescenta garantias de reprodutibilidade (contrato de observação verificado,
+> avaliação multi-semente, fonte única para tabelas e figuras). Comece por
+> `v5/README.md` e pelos cadernos em `v5/notebooks/`.
+>
+> A suíte deste diretório está em **79 testes + 1 xfailed** (algumas passagens
+> abaixo citam contagens anteriores).
+
 Implementação fiel ao manuscrito `29914_Paper_manuscript.pdf`, isolada em
 `v4/paper/` para não sobrescrever o código histórico do `v4/`.
 

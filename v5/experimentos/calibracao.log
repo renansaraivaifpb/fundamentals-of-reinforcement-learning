@@ -1,0 +1,20 @@
+  B = 0.0        seed 0 (2.9 min): conf 86.5% | estreita 83.8% | viol 83%
+  B = 0.0        seed 1 (2.8 min): conf 86.5% | estreita 81.5% | viol 85%
+  B = 10.0       seed 0 (2.8 min): conf 86.5% | estreita 68.3% | viol 83%
+  B = 10.0       seed 1 (2.7 min): conf 86.5% | estreita 72.2% | viol 83%
+  k = 0.6        seed 0 (2.8 min): conf 86.5% | estreita 68.3% | viol 83%
+  k = 0.6        seed 1 (3.1 min): conf 86.5% | estreita 72.2% | viol 83%
+  k = 1.0        seed 0 (3.1 min): conf 86.5% | estreita 83.8% | viol 69%
+  k = 1.0        seed 1 (2.9 min): conf 86.5% | estreita 75.7% | viol 72%
+  k = 4.0        seed 0 (2.7 min): conf 86.3% | estreita 62.0% | viol 81%
+  k = 4.0        seed 1 (2.8 min): conf 86.5% | estreita 80.7% | viol 57%
+  rho = -5.0     seed 0 (2.7 min): conf 86.5% | estreita 68.3% | viol 83%
+  rho = -5.0     seed 1 (3.0 min): conf 86.5% | estreita 72.2% | viol 83%
+  rho = -20.0    seed 0 (2.7 min): conf 85.7% | estreita 58.3% | viol 81%
+  rho = -20.0    seed 1 (2.8 min): conf 86.5% | estreita 78.0% | viol 86%
+  frio = -2.0    seed 0 (2.8 min): conf 86.5% | estreita 68.3% | viol 83%
+  frio = -2.0    seed 1 (2.7 min): conf 86.5% | estreita 72.2% | viol 83%
+  frio = -10.0   seed 0 (2.7 min): conf 54.2% | estreita 10.7% | viol 81%
+  frio = -10.0   seed 1 (2.7 min): conf 28.7% | estreita 7.5% | viol 82%
+
+gravado: /home/renan/Downloads/air_conditioning_classroom/v5/experimentos/resultados_calibracao.csv

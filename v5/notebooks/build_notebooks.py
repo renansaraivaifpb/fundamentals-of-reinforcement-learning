@@ -461,6 +461,632 @@ de terceiros — BOPTEST (Boutahri e Tilioua, 2025) ou BuildingGym (Dai et al.,
 ])
 
 
+# ============================================================ notebook 04
+nb4 = nbf.v4.new_notebook(cells=[
+    md("""
+# 04 — Trajetórias, e a faixa estreita muda o vencedor?
+
+Duas perguntas:
+
+1. **Como cada controlador se comporta ao longo do dia**, cenário a cenário? Quem
+   de fato mantém a temperatura na faixa, e por qual mecanismo?
+2. **Estreitar a faixa alvo favorece o RL?** A intuição é que, quanto mais
+   exigente a especificação, mais o aprendizado compensaria.
+
+A segunda é testada com retreinamento, não com re-medição: cobrar ±0,5 °C de um
+agente treinado para ±2,0 °C mediria descasamento de objetivo, não capacidade.
+"""),
+    code(PREAMBULO),
+
+    md("""
+## 4.1 O dia inteiro, cenário a cenário
+
+Pequenos múltiplos: a comparação que interessa é entre controladores **dentro**
+de cada cenário. A faixa alvo aparece sombreada como referência visual comum.
+"""),
+    code("""
+tr = R.trajetorias()
+fig = F.fig_trajetorias_grade(tr)
+plt.close(fig)
+fig
+"""),
+
+    md("""
+### Leitura
+
+O padrão é imediato e consistente nos oito cenários controláveis: **o termostato
+estaciona acima da faixa**, encostado no teto de 26 °C, enquanto PI e DQN ficam
+quase sobrepostos em torno de 24 °C.
+
+C1 (Frio + Poucas) é o cenário em que as três curvas coincidem — é exatamente o
+excluído pelo filtro de controlabilidade: sem ninguém na sala e partindo de
+17 °C, a temperatura sobe sozinha até a faixa e resfriar seria contraprodutivo.
+Nenhum controlador se distingue ali, e por isso ele não entra nas médias.
+"""),
+
+    md("""
+## 4.2 Um dia em detalhe — o mecanismo
+
+A trajetória mostra **quanto** cada um acerta; a ação mostra **como**.
+"""),
+    code("""
+fig = F.fig_trajetoria_detalhe(tr, "C6")
+plt.close(fig)
+fig
+"""),
+
+    md("""
+### Leitura
+
+O painel inferior explica o superior. O **termostato** liga em MEDIUM ao cruzar
+26 °C e desliga ao voltar — daí o dente-de-serra permanentemente acima da faixa.
+
+O **DQN** comuta entre OFF e HIGH de forma agressiva, com pulsos curtos e
+repetidos: é o *short-cycling* visível, o mesmo fenômeno que a distribuição de
+permanência quantifica (mediana de 12 min contra requisito de 36).
+
+O **PI** modula: usa LOW e MEDIUM de forma sustentada e recorre a HIGH raramente.
+Mesmo resultado de temperatura, mecanismo mais suave — e, como a Seção 4.6
+mostra, mais barato.
+"""),
+
+    md("""
+## 4.3 Apertando a régua, sem retreinar
+
+Primeiro a versão barata da pergunta: mantendo os mesmos controladores, o que
+acontece quando se exige mais precisão? Aqui o DQN está em desvantagem
+declarada — foi treinado para ±2,0 °C.
+"""),
+    code("""
+sens = R.sensibilidade_a_largura()
+sens.pivot(index="tolerancia", columns="controlador",
+           values="na_tolerancia_pct").round(1)
+"""),
+    code("""
+fig = F.fig_sensibilidade_largura(sens)
+plt.close(fig)
+fig
+"""),
+
+    md("""
+### Leitura
+
+Em ±2,0 °C, PI e DQN empatam em 86,5 %. À medida que a régua aperta, eles **se
+separam**, e a distância cresce monotonicamente: em ±0,25 °C o PI mantém 73,2 %
+contra 34,0 % do DQN — mais que o dobro.
+
+Os termostatos colapsam bem antes: de 54,0 % para 1,7 % o de zona morta nula.
+Isso confirma que a métrica de faixa larga do manuscrito estava saturada e
+escondia a diferença real entre as estratégias.
+
+Mas este teste é injusto com o DQN, e por isso não conclui nada sozinho.
+"""),
+
+    md("""
+## 4.4 O teste justo: ambos preparados para a faixa
+
+Para cada largura, **dois** controladores são preparados para *aquela* largura:
+o DQN é retreinado com a faixa de conforto correspondente, e o PI é
+**re-sintonizado** por busca em grade.
+
+Re-sintonizar o PI é a parte não negociável. Congelar os ganhos de ±2,0 °C e
+cobrar precisão de ±0,5 °C reproduziria, dentro deste experimento, o mesmo
+defeito que a auditoria acusa no manuscrito: vencer um adversário mal
+configurado.
+"""),
+    code("""
+fx = R.faixa_estreita()
+fx.groupby(["tolerancia", "controlador"])["na_tolerancia_pct"].agg(
+    ["mean", "std", "min", "max"]).round(2)
+"""),
+    code("""
+fig = F.fig_faixa_estreita(fx)
+plt.close(fig)
+fig
+"""),
+
+    md("""
+### Leitura — a hipótese é refutada, e o efeito é o inverso
+
+| Faixa alvo | PI | DQN (3 sementes) | Vantagem do PI |
+|---|---|---|---|
+| ±2,0 °C | 86,5 % | 86,5 % | **+0,0 pp** |
+| ±1,0 °C | 83,8 % | 80,8 % | **+3,0 pp** |
+| ±0,5 °C | 79,8 % | 71,5 % | **+8,3 pp** |
+
+Estreitar a faixa **amplia** a vantagem do controle clássico, monotonicamente —
+o oposto da intuição. E há um segundo efeito: o desvio entre sementes do DQN
+cresce de 0,00 para 5,20 e 4,04. Quando a especificação aperta, o treinamento não
+só entrega menos, como fica **instável**.
+"""),
+
+    md("""
+## 4.5 "Mas treinou o suficiente?"
+
+É a objeção óbvia, e nenhum experimento com orçamento fixo a responde. Seguindo
+as Figs. 9-10 de Yuan et al. — que traçam custo e desconforto ano a ano —,
+avaliamos o agente periodicamente **durante** o treino, contra a linha do PI.
+
+O PI aparece como reta horizontal por construção: ele não aprende.
+"""),
+    code("""
+curva = R.curva_aprendizado()
+curva.groupby(["tolerancia", "controlador", "passos"])["na_tolerancia_pct"].mean(
+    ).unstack(level=0).tail(8).round(1)
+"""),
+    code("""
+fig = F.fig_curva_aprendizado(curva)
+plt.close(fig)
+fig
+"""),
+
+    md("""
+### Leitura
+
+Em **±2,0 °C** o DQN sai de 14 %, cruza rapidamente entre 100k e 250k passos e
+**satura exatamente sobre a linha do PI** (86,5 % nas três sementes). O empate já
+reportado não é coincidência de um ponto de parada: é o patamar de convergência.
+
+Em **±0,5 °C** o quadro é outro. A curva sobe de 4 % para ~63 % e a 400k passos
+está **16,9 pp abaixo** do PI. O crescimento desacelera muito — de 4 → 57 entre
+25k e 250k, contra 57 → 63 nos 150k seguintes.
+
+**Ressalva honesta:** a curva desacelera fortemente, mas **não é plana**. A
+tendência nos últimos 150k passos ainda é de +2,9 pp. Mantida essa taxa — hipótese
+otimista, que o próprio achatamento contradiz —, seriam necessários cerca de
+**870k passos adicionais** para fechar a diferença. Portanto o que estes dados
+sustentam não é "o DQN converge para pior", e sim que **o custo de amostra para
+alcançar o PI é alto e cresce quando a faixa aperta**. A afirmação mais forte
+exigiria um orçamento maior.
+
+Note ainda a dispersão ao final: 73,3 / **43,7** / 71,8. Uma das três sementes
+colapsa — a instabilidade da Seção 4.4 aparece aqui como trajetória, não só como
+desvio-padrão.
+
+O paralelo com Yuan et al. é direto: eles reportam o RL superando o PID apenas
+após **dois anos de exploração mais dois anos de buffer**, com melhor desempenho
+no sétimo ano. Alto custo de amostra neste domínio é um achado da literatura, não
+uma particularidade desta implementação.
+"""),
+
+    md("""
+## 4.6 De onde vem a diferença de energia
+
+As tabelas mostram que o DQN gasta ~4,7 % mais que o PI, mas não mostram **em
+quê**. Seguindo a Fig. 11 de Yuan et al., que decompõe o consumo por item do
+sistema, decompomos por **nível de potência acionado**.
+"""),
+    code("""
+from hvac.config import config_for_profile
+cop = {k.name: v for k, v in config_for_profile("Equilibrado").physics.cop.items()}
+dec = R.consumo_decomposto()
+dec["por_nivel"].pivot(index="controlador", columns="nivel",
+                       values="kwh_dia").round(2)
+"""),
+    code("""
+fig = F.fig_consumo_decomposto(dec, cop=cop)
+plt.close(fig)
+fig
+"""),
+
+    md("""
+### Leitura — o mecanismo do desperdício
+
+| Controlador | OFF | LOW (COP 3,45) | MEDIUM (COP 3,59) | HIGH (COP 3,00) |
+|---|---|---|---|---|
+| PI | 55,4 % | 26,4 % | **13,5 %** | 4,7 % |
+| DQN | 54,0 % | 36,6 % | **0,0 %** | 9,5 % |
+
+**O DQN nunca usa MEDIUM** — precisamente o nível de maior COP do equipamento — e
+compensa com o dobro de HIGH, o de pior COP. A energia extra não vem de operar
+mais tempo; vem de operar nos níveis errados.
+
+A causa é estrutural: uma política *greedy* determinística escolhe o argmax dos
+Q-values. Uma ação que nunca seja o argmax **desaparece por completo** da
+política, mesmo que seja quase ótima em muitos estados. Um controlador
+proporcional, ao contrário, atravessa naturalmente todos os níveis ao percorrer a
+faixa de erro.
+
+Isso liga os dois achados: descartar o nível intermediário obriga a alternar
+entre extremos, que é exatamente o *short-cycling* observado no painel de ações
+da Seção 4.2.
+"""),
+
+    md("""
+## 4.7 Uma hipótese sobre a causa — testada e refutada
+
+A degradação em faixa estreita sugeria uma explicação: PI e DQN compartilham o
+mesmo espaço de ação, mas o PI tem **integrador**, e a observação do manuscrito é
+puramente reativa (temperatura, ocupação, hora). Sem integrar o erro, não se
+elimina offset — e com ±0,5 °C o offset passa a ser a diferença entre estar
+dentro ou fora.
+
+Hipótese testável: dar ao agente o erro escalado e o erro integral deveria
+recuperar parte da distância.
+"""),
+    code("""
+ti = R.teste_integral()
+ti.groupby(["variante", "n_canais"])["na_tolerancia_pct"].agg(
+    ["mean", "std", "min", "max"]).round(2)
+"""),
+
+    md("""
+### Leitura — resultado negativo
+
+| Observação | Na tolerância |
+|---|---|
+| Do manuscrito (4 canais) | **71,5 %** |
+| + erro escalado e integral (6 canais) | **65,9 %** |
+
+Acrescentar informação **piorou**. A hipótese não se sustenta: com o mesmo
+orçamento de 300k passos, os canais extras ampliam o que há para aprender sem
+compensar em desempenho.
+
+Fica registrado como resultado negativo. A degradação do DQN em faixa estreita
+tem mecanismo parcialmente explicado — o descarte do nível MEDIUM, Seção 4.6 —
+mas a contribuição do estado insuficiente **não** foi demonstrada, e seria
+desonesto apresentá-la como se tivesse sido.
+"""),
+
+    md("""
+## 4.8 Síntese
+
+1. **Trajetórias.** O termostato estaciona acima da faixa; PI e DQN a mantêm. A
+   diferença entre os dois não está na temperatura, está na **ação**: o PI modula,
+   o DQN alterna entre extremos.
+2. **Estreitar a faixa não favorece o RL** — favorece o PI, e de forma crescente:
+   +0,0 → +3,0 → +8,3 pp. Com ambos preparados para cada largura.
+3. **Não é simplesmente falta de treino.** Em ±2,0 °C o DQN converge sobre a
+   linha do PI; em ±0,5 °C fica 16,9 pp abaixo com a curva já bastante achatada.
+   O que se afirma é o custo de amostra elevado, não a impossibilidade — a
+   distinção importa e está registrada na Seção 4.5.
+4. **A energia extra tem mecanismo identificado**: a política aprendida descarta o
+   nível de melhor eficiência do equipamento.
+5. **Uma hipótese explicativa foi testada e refutada** — dar estado suficiente ao
+   agente não recuperou o desempenho.
+
+O conjunto reforça a conclusão dos notebooks anteriores, agora com mecanismo: em
+rastreamento de setpoint com modelo conhecido, o controle clássico não é apenas
+competitivo — ele é estruturalmente mais adequado, e a vantagem **cresce** com a
+exigência de precisão.
+"""),
+])
+
+
+# ============================================================ notebook 05
+nb5 = nbf.v4.new_notebook(cells=[
+    md("""
+# 05 — O nível MEDIUM descartado, e quem mantém melhor a faixa
+
+Quatro perguntas:
+
+1. O DQN **não usar MEDIUM** é um problema, do ponto de vista de custo-benefício?
+2. A causa está na **recompensa**? Valeria ajustar penalidades?
+3. Em percentual, **qual controlador mantém melhor a temperatura na faixa**?
+4. Num conjunto **amplo e aleatório** de cenários, **onde** os modelos divergem?
+
+Os três perfis do manuscrito — Agressivo, Equilibrado e Passivo — são avaliados
+lado a lado, porque é a variação entre eles que separa "causa na recompensa" de
+"causa no algoritmo".
+"""),
+    code(PREAMBULO),
+
+    md("""
+## 5.1 Os três perfis descartam MEDIUM
+
+Os perfis diferem bastante nos pesos: o gradiente de conforto vai de 7,0 a 3,0, a
+penalidade de energia de 0,03 a 0,12 (**4×**), a de troca de −0,5 a −1,5 (**3×**).
+Se a recompensa fosse a causa, esperaríamos comportamentos distintos.
+"""),
+    code("""
+from hvac.config import config_for_profile, REWARD_PROFILES
+cop = {k.name: v for k, v in config_for_profile("Equilibrado").physics.cop.items()}
+niveis = R.uso_dos_niveis()
+niveis.round(1)
+"""),
+    code("""
+fig = F.fig_uso_dos_niveis(niveis, cop=cop)
+plt.close(fig)
+fig
+"""),
+
+    md("""
+### Leitura
+
+**Os três perfis usam MEDIUM 0,0 % do tempo**, apesar de pesos que variam por
+fatores de 3× a 4×. O Agressivo é ainda mais extremo: descarta LOW **e** MEDIUM,
+operando só em OFF (83,4 %) e HIGH (16,6 %) — política puramente liga-desliga.
+
+Já o **SAC**, treinado com a **mesma** função de recompensa do DQN Equilibrado,
+usa MEDIUM 13,3 % do tempo — praticamente igual ao PI (12,0 %).
+
+Isso é um controle experimental limpo: mesma recompensa, comportamentos opostos.
+A causa **não é a recompensa**; é a política discreta de argmax.
+"""),
+
+    md("""
+## 5.2 É um problema de custo-benefício? Sim.
+
+MEDIUM é o nível de **melhor COP** do equipamento (3,59, contra 3,45 do LOW e
+3,00 do HIGH) — o modelo físico reproduz o pico de eficiência em carga parcial,
+comportamento de equipamento *inverter*. Descartá-lo significa operar nos níveis
+menos eficientes.
+"""),
+    code("""
+dec = R.consumo_decomposto()
+dec["por_nivel"].pivot(index="controlador", columns="nivel",
+                       values="kwh_dia").round(2)
+"""),
+    code("""
+fig = F.fig_consumo_decomposto(dec, cop=cop)
+plt.close(fig)
+fig
+"""),
+
+    md("""
+### Leitura
+
+O DQN Equilibrado gasta 10,90 kWh/dia contra 10,40 do PI — **4,7 % a mais** para
+entregar o mesmo conforto. E a energia extra não vem de operar mais tempo (ambos
+ficam ~55 % em OFF): vem de **operar nos níveis errados**, com o dobro de HIGH.
+
+Portanto sim, é um problema de custo-benefício — e é o único mecanismo
+identificado que explica quantitativamente a diferença de energia entre os dois.
+"""),
+
+    md("""
+## 5.3 Vale ajustar a recompensa? O que os Q-values dizem
+
+Se MEDIUM fosse fortemente dominado, ajustar pesos não adiantaria. Se estivesse
+em segundo lugar por pouco, um ajuste pequeno o traria de volta. A resposta exige
+olhar a **escala** dos Q-values, e não só o ranking.
+"""),
+    code("""
+R.analise_q_values().round(2)
+"""),
+
+    md("""
+### Leitura — cuidado com a escala
+
+MEDIUM fica em **terceiro lugar** no ranking (posição média 3,2 de 4) nos três
+perfis, e nunca é o argmax.
+
+Mas o déficit precisa ser lido na escala certa. O Q-value absoluto é da ordem de
+**980**; a faixa inteira entre as quatro ações vale **~1,9 %** desse valor, e o
+déficit de MEDIUM para o topo é de **~1,2 %**.
+
+> Dizer que "MEDIUM perde 63 % da faixa de Q" seria tecnicamente verdadeiro e
+> substantivamente enganoso — sugeriria uma ação ruim, quando as quatro são
+> **quase equivalentes em valor**.
+
+O mecanismo real é *winner-take-all*: **uma política greedy determinística
+converte uma margem de ~1 % em uso de 0 %.** Não existe "usar MEDIUM às vezes"
+sob argmax — ou a ação é a melhor num estado, ou não aparece nunca.
+
+**Consequência prática:** mexer nos pesos da recompensa é o caminho errado. Os
+três perfis já cobrem uma variação de 3–4× e todos colapsam igual. O que restaura
+o uso dos níveis intermediários é mudar a **classe de política** — estocástica ou
+contínua, como o SAC demonstra —, não reponderar termos.
+"""),
+
+    md("""
+## 5.4 Quem mantém melhor a faixa? Conjunto amplo e independente
+
+A matriz 3×3 tem nove pontos e foi usada para sintonizar o PI. Empregam-se
+aqui **150 cenários aleatórios** sobre o espaço contínuo (temperatura inicial 16–33 °C,
+ocupação 0–45, hora 0–23), com semente fixa distinta das de treino. Todos os
+controladores veem **exatamente os mesmos** cenários — comparação emparelhada.
+
+Para o PI este é um teste **fora da amostra**: ele foi sintonizado noutro
+conjunto.
+"""),
+    code("""
+al = R.cenarios_aleatorios_cache()
+al.groupby("controlador").agg(
+    conf_larga=("conf_larga_pct", "mean"),
+    conf_estreita=("conf_estreita_pct", "mean"),
+    na_tolerancia=("na_tolerancia_pct", "mean"),
+    desvio=("desvio_ideal", "mean"),
+    kwh_dia=("energia_kwh", "mean"),
+).sort_values("na_tolerancia", ascending=False).round(2)
+"""),
+
+    md("""
+### Leitura — a resposta depende de qual faixa se pergunta
+
+| Critério | Melhor | Valor |
+|---|---|---|
+| Faixa larga [22, 26] °C | **empate** entre PI e os 3 DQN | 87,88 % |
+| Faixa estreita [23, 25] °C | empate PI / DQN Agressivo | 83,28 % |
+| Tolerância ±0,5 °C | DQN Agressivo, por 0,44 pp | 79,62 % vs 79,18 % |
+| Desvio médio \\|T−24\\| | **PI** | 0,62 °C |
+| Energia | **PI** (entre os que controlam) | 10,77 kWh/dia |
+
+Na faixa larga os quatro dão **exatamente 87,88 %** — a métrica está saturada, e
+o valor é determinado pelo transitório de *pulldown*, que é limitado pela física
+e não pelo controlador. Ela não discrimina nada.
+
+Na tolerância de ±0,5 °C aparece separação real, e ali o **DQN Agressivo alcança
+o PI** (79,62 % contra 79,18 %). Este é um resultado favorável ao RL, e mais
+honesto do que a matriz 3×3 sugeria — mas veja o custo na Seção 5.6.
+
+O PI **se sustenta fora da amostra**, o que atenua (sem eliminar) a ressalva de
+que ele havia sido sintonizado no mesmo conjunto de avaliação.
+"""),
+
+    md("""
+## 5.5 Onde os modelos divergem
+
+A média esconde a distribuição. Agrupando por condição do cenário:
+"""),
+    code("""
+fig = F.fig_divergencia_por_condicao(al)
+plt.close(fig)
+fig
+"""),
+    code("""
+cond = al.drop_duplicates("cenario").set_index("cenario")[["start_temp","occupancy","hour"]]
+piv = al.pivot(index="cenario", columns="controlador",
+               values="na_tolerancia_pct").join(cond)
+piv["dif"] = piv["DQN Equilibrado"] - piv["PI sintonizado"]
+piv.nsmallest(6, "dif")[["start_temp", "occupancy", "hour",
+                         "PI sintonizado", "DQN Equilibrado", "dif"]].round(1)
+"""),
+
+    md("""
+### Leitura — a falha é concentrada, não difusa
+
+O déficit dos perfis Equilibrado e Passivo vive quase todo em **salas vazias**:
+−21,7 pp e −18,2 pp com 0–10 ocupantes, contra −4,4 pp e −3,1 pp com a sala
+cheia.
+
+Os piores cenários têm assinatura comum: **ocupação 0–4 pessoas, madrugada
+(2h–6h)**. Ali o PI atinge 100 % dentro da tolerância e o DQN cai para 37–58 %.
+
+**Mecanismo:** com a sala vazia de madrugada, a carga térmica é mínima, e manter
+±0,5 °C exige potência muito baixa e finamente dosada. O menor nível não-nulo
+disponível (LOW, 25 % da capacidade) já é excessivo — então o agente oscila entre
+resfriar demais e deixar subir. O PI resolve alternando com o ciclo certo, obtendo
+uma média efetiva menor que qualquer nível isolado.
+
+O DQN Agressivo **não** sofre disso (+1,7 pp em sala vazia), porque opera em
+liga-desliga puro e, sem penalidade de energia relevante, aciona HIGH sem
+hesitação — mas paga na conta de luz.
+"""),
+
+    md("""
+## 5.6 A fronteira de Pareto: cada perfil falha de um jeito
+"""),
+    code("""
+fig = F.fig_pareto_aleatorios(al)
+plt.close(fig)
+fig
+"""),
+    code("""
+g = al.groupby("controlador").agg(tol=("na_tolerancia_pct","mean"),
+                                  kwh=("energia_kwh","mean"))
+pi = g.loc["PI sintonizado"]
+comp = g.loc[["DQN Agressivo","DQN Equilibrado","DQN Passivo","SAC Equilibrado"]].copy()
+comp["dif_tolerancia_pp"] = comp["tol"] - pi["tol"]
+comp["dif_energia_pct"] = (comp["kwh"] / pi["kwh"] - 1) * 100
+comp.round(2)
+"""),
+
+    md("""
+### Leitura — nenhum perfil domina o PI
+
+| Perfil | Conforto vs PI | Energia vs PI | Diagnóstico |
+|---|---|---|---|
+| DQN Agressivo | **+0,4 pp** | **+12,9 %** | compra conforto com energia |
+| DQN Equilibrado | −6,3 pp | +2,7 % | perde conforto sem economizar |
+| DQN Passivo | −7,5 pp | +0,7 % | perde conforto sem economizar |
+| SAC Equilibrado | −43,6 pp | +10,5 % | pior nos dois eixos |
+
+Esta é a assinatura de estar **abaixo da fronteira de Pareto**: para igualar o PI
+em conforto é preciso gastar 12,9 % mais energia; para igualar em energia é
+preciso perder 6–7 pontos de conforto. O PI ocupa sozinho o canto ótimo.
+
+E note que os três perfis foram obtidos **variando apenas pesos da recompensa** —
+que era a tese central do manuscrito. A variação move o agente ao longo de uma
+curva que passa **inteiramente por dentro** da fronteira, sem tocá-la.
+"""),
+
+    md("""
+## 5.8 Velocidade de resposta: quanto tempo até a sala ficar utilizável
+
+Todas as métricas até aqui medem **qualidade em regime** — fração do tempo dentro
+da faixa, desvio, energia. Nenhuma media **velocidade**, que é requisito
+operacional real: uma sala que leva quatro horas para ficar utilizável é um
+problema mesmo que depois se mantenha perfeita.
+
+Esta seção também testa uma afirmação feita anteriormente **sem medição**: a de
+que o conforto idêntico entre controladores (Seção 5.4) decorre de um transitório
+limitado pela física. Se os tempos diferirem, aquela explicação está errada.
+
+Reportamos três grandezas distintas — entrar na faixa, parar de sair dela, e
+quanto se passou do outro lado — sobre os cenários que **começam fora** da faixa.
+"""),
+    code("""
+tr = R.resposta_transitoria()
+tr.groupby("controlador").agg(
+    entrada_h=("entrada_h", "mean"), desvio=("entrada_h", "std"),
+    acomodacao_h=("acomodacao_h", "mean"), taxa_c_h=("taxa_c_por_h", "mean"),
+    saturacao_pct=("saturacao_pct", "mean"),
+    kwh_transitorio=("energia_transitorio_kwh", "mean"),
+).sort_values("entrada_h").round(2)
+"""),
+    code("""
+fig = F.fig_transitorio(tr)
+plt.close(fig)
+fig
+"""),
+
+    md("""
+### Leitura — a explicação anterior se confirma
+
+| Controlador | Entrar | Acomodar | Potência máxima |
+|---|---|---|---|
+| PI e os três DQN | **1,27 h** | **1,27 h** | **100 %** |
+| Termostato (ambos) | 1,99 h | 19–21 h | 28 % |
+| SAC Equilibrado | 3,91 h | 4,73 h | 31 % |
+
+**PI e os três perfis DQN têm tempo idêntico — divergem em 0 de 48 cenários.** O
+motivo aparece na última coluna: todos saturam o atuador, operando em potência
+máxima durante 100 % do transitório. No *pulldown* não existe decisão a tomar; a
+única ação sensata é potência total, e a velocidade fica limitada pela física do
+equipamento. Isso confirma a explicação dada na Seção 5.4 para o conforto
+idêntico, que até aqui era inferência.
+
+O **termostato** revela seu defeito na distância entre as duas barras: entra na
+faixa em 1,99 h, mas leva cerca de **20 horas** para parar de sair dela. Ele
+estaciona no teto e oscila em torno de 26 °C — entra e sai repetidamente. A
+métrica de primeira entrada o favoreceria indevidamente; a de acomodação expõe o
+comportamento.
+
+O **SAC** é **3,1× mais lento** que o PI, e a causa é a mesma coluna: satura o
+atuador em apenas 31 % do transitório. Ele hesita onde não há razão para hesitar.
+
+### Uma observação sobre o conjunto de métricas
+
+Esta é a **terceira métrica saturada** encontrada: conforto na faixa larga,
+conforto na faixa estreita sobre cenários aleatórios, e agora velocidade de
+resposta. Em todas, PI e DQN produzem valores indistinguíveis.
+
+Isso não é coincidência estatística — é a assinatura de um problema com pouco
+espaço para diferenciação. Fora do regime permanente, a política ótima é trivial
+(potência máxima) e qualquer controlador competente a encontra. A diferenciação
+existe apenas no regime permanente, e ali quem decide é a resolução da atuação —
+onde o agente discreto perde, pelas razões da Seção 5.3.
+"""),
+    md("""
+## 5.9 Síntese
+
+1. **O descarte de MEDIUM é real e custa dinheiro.** Os três perfis o descartam
+   completamente; o nível tem o melhor COP; a energia extra do DQN vem daí.
+2. **Não adianta ajustar a recompensa.** Os perfis já variam os pesos por 3–4× e
+   colapsam igual. As quatro ações têm Q-values dentro de ~2 %, e o argmax
+   converte ~1 % de margem em 0 % de uso.
+3. **O que restaura os níveis intermediários é a classe de política.** O SAC, com
+   a mesma recompensa, usa MEDIUM como o PI. Política contínua ou estocástica —
+   não reponderação.
+4. **Na faixa larga ninguém se distingue** (87,88 % para todos): a métrica é
+   limitada pela física do *pulldown*. Só a tolerância estreita discrimina.
+5. **A falha é concentrada em salas vazias de madrugada**, onde o menor nível
+   disponível já é potência demais.
+6. **Nenhum perfil domina o PI** — cada um erra por um eixo diferente.
+7. **Velocidade de resposta não discrimina**: PI e DQN entram na faixa em tempo
+   idêntico, porque ambos saturam o atuador. O termostato entra rápido mas leva
+   ~20 h para parar de sair; o SAC é 3,1× mais lento por hesitar.
+
+**Recomendação prática:** se o objetivo for aplicar RL neste equipamento, o ganho
+mais direto não está na recompensa, e sim em dar ao agente **autoridade de
+atuação mais fina** — ação contínua, ou modulação por ciclo de trabalho entre
+níveis. Sem isso, a política aprendida fica presa aos extremos e paga a diferença
+em energia.
+"""),
+])
+
+
 def gerar(nb, nome):
     caminho = os.path.join(AQUI, nome)
     nb.metadata["kernelspec"] = {"display_name": "Python 3",
@@ -481,5 +1107,7 @@ if __name__ == "__main__":
     erros += gerar(nb1, "01_auditoria_baselines.ipynb")
     erros += gerar(nb2, "02_ablacao_e_short_cycling.ipynb")
     erros += gerar(nb3, "03_regimes_estendidos.ipynb")
+    erros += gerar(nb4, "04_trajetorias_e_faixa_estreita.ipynb")
+    erros += gerar(nb5, "05_niveis_de_potencia_e_cenarios_aleatorios.ipynb")
     print("\nTOTAL DE ERROS:", erros)
     sys.exit(1 if erros else 0)

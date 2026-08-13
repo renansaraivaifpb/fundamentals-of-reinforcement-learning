@@ -4,3 +4,4 @@ variante,n_canais,seed,na_tolerancia_pct,desvio_ideal,energia_kwh
 "obs do manuscrito (T, ocup., hora)",4,2,76.16666666666667,0.8203665983759889,10.12550780872795
 + erro escalado e integral,6,0,68.66666666666667,0.8656269168024187,11.300931024154591
 + erro escalado e integral,6,1,58.0,1.2739720197495812,11.739127637829181
++ erro escalado e integral,6,2,71.0,1.0918521825127947,9.608483760445685

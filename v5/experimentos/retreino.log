@@ -1,0 +1,14 @@
+10 treinos de 550,000 passos sob B=0, k=1,0
+
+  [1/10] DQN Agressivo seed 0: 5.1 min
+  [2/10] DQN Agressivo seed 1: 5.2 min
+  [3/10] DQN Agressivo seed 2: 5.2 min
+  [4/10] DQN Equilibrado seed 0: 4.7 min
+  [5/10] DQN Equilibrado seed 1: 5.0 min
+  [6/10] DQN Equilibrado seed 2: 5.1 min
+  [7/10] DQN Passivo seed 0: 4.9 min
+  [8/10] DQN Passivo seed 1: 4.7 min
+  [9/10] DQN Passivo seed 2: 4.8 min
+  [10/10] SAC Equilibrado seed 0: 60.0 min
+
+modelos em /home/renan/Downloads/air_conditioning_classroom/v5/models_derivados

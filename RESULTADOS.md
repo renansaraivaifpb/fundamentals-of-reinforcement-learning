@@ -1,5 +1,33 @@
 # Resultados do Sistema de Controle de Ar-Condicionado com RL
 
+> ## ⚠️ DOCUMENTO HISTÓRICO — as conclusões abaixo estão incorretas
+>
+> Este relatório é da **primeira versão** do projeto (Q-Learning tabular) e está
+> preservado como registro da evolução do trabalho. Suas conclusões foram
+> **refutadas por medição posterior** e não devem ser citadas.
+>
+> **O que deu errado.** O texto celebra "100 % de conforto" com uma política que
+> escolhe OFF em **98,3 %** dos estados, e interpreta isso como "política
+> conservadora". O diagnóstico correto, obtido depois, é outro: **o agente não
+> aprendeu política alguma**. Em espaços contínuos com variáveis de dinâmica
+> lenta, a transição permanece no mesmo tile da discretização e o valor nunca se
+> propaga — **79,8 %** das transições são *intra-tile*. O agente aprendeu a não
+> fazer nada, e a métrica de conforto não acusou porque a própria sala se mantém
+> na faixa em boa parte dos cenários.
+>
+> Medido depois, sob avaliação correta, o Q-Learning tabular atinge **42,1 %** de
+> conforto — **pior que um termostato com zona morta**.
+>
+> A migração para DQN, feita na época por tentativa e erro, estava certa; a
+> justificativa teórica só veio com o diagnóstico acima.
+>
+> **Onde estão os resultados válidos:** `README.md` na raiz para o resumo,
+> `v5/notebooks/` para a análise completa, `v4/paper/REVISAO.md` para a resposta
+> aos pareceres.
+
+---
+
+
 ## 📊 Resumo Executivo
 
 O sistema de controle inteligente de ar-condicionado para salas de aula foi desenvolvido com sucesso usando **Aprendizagem por Reforço (Q-Learning)**. O agente aprendeu uma política eficaz que balanceia conforto térmico e eficiência energética.

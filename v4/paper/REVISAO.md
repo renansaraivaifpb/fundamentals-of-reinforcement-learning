@@ -34,7 +34,7 @@ Isso significa que os achados **não têm o mesmo peso**:
 
 Efeito colateral favorável: R1 escreveu *"Com a disponibilização de scripts e
 código-fonte, tal problema deve ser resolvido"*. Publicar este diretório como
-artefato — 37 testes, dump completo de hiperparâmetros, Tabela 1 derivada de
+artefato — 79 testes, dump completo de hiperparâmetros, Tabela 1 derivada de
 primeiros princípios — ataca diretamente a queixa de reprodutibilidade.
 
 ---
@@ -429,13 +429,30 @@ incluído, é ele quem domina o canto.
 | Dump completo de hiperparâmetros | ✅ `train.py` |
 | PPO / A2C | ✅ `train.py::ALGOS` |
 | Inicialização por especialista | ✅ `expert_init.py` (resultado negativo) |
-| Suíte de regressão (28 testes) | ✅ `tests/test_env.py` |
+| Suíte de regressão | ✅ `tests/test_env.py` (79 testes + 1 xfailed) |
 | Diagnóstico HNP (intra-tile 79,8 %) | ✅ `tabular.py::intra_tile_fraction` |
 | Q-Learning tabular completo | ✅ **executado** — 42,1 % conf., pior que o termostato |
 | Separação calibração/teste + cenários aleatórios | ✅ `scenarios.py` |
 | Notebook de diagnóstico | ✅ `notebooks/01_diagnostico_critico.ipynb` |
-| Suíte de regressão | ✅ **37 testes + 1 xfailed** |
+| Suíte de regressão | ✅ **79 testes + 1 xfailed** |
 | Ablação da recompensa | ✅ **executada** — 24 treinos, 2 h 42 min |
 | MPC como baseline | ❌ não implementado |
 | Refazer achado nº 1 com PI sintonizado só na calibração | ❌ próximo passo obrigatório |
 | Migração BOPTEST / BuildingGym | ❌ trabalho de médio prazo |
+
+---
+
+## Continuação em `v5/`
+
+Os itens abaixo foram executados após esta revisão e estão documentados em
+`v5/README.md` e nos cadernos `v5/notebooks/`:
+
+| Item | Resultado |
+|---|---|
+| Demanda contratada derivada da condição de projeto | o valor arbitrado (0,70 kW) era **infactível** — 72 % abaixo do regime; com o contrato derivado (1,32 kW) a restrição não aperta e a hipótese perde base |
+| Faixa estreita com retreino de ambos os controladores | estreitar **amplia** a vantagem do PI: +0,0 → +3,0 → +8,3 pp |
+| Desempenho contra orçamento de treino | em ±2,0 °C o DQN converge sobre o PI; em ±0,5 °C fica 16,9 pp abaixo |
+| Mecanismo do consumo excedente | os três perfis descartam o nível de melhor COP; causa é o argmax, não a recompensa (um SAC com a recompensa idêntica o utiliza) |
+| Conjunto independente de 150 cenários aleatórios | PI e DQN Agressivo empatam em conforto; o PI gasta 11,4 % menos |
+| Contrato de observação verificado por schema | modelos `..._obs9.zip` tinham na verdade 10 canais — a dimensão vivia no nome do arquivo |
+| Classificação da literatura por qualidade do baseline | dos seis trabalhos revisados, apenas dois comparam com controle clássico sintonizado |
